@@ -1648,6 +1648,7 @@ string to_string(atom a, int write) {
 		for (auto &p : a.as<table>()) {
 			s += "(" + to_string(p.first, write) + ", " + to_string(p.second, write) + ")";
 		}
+		s += ">";
 		break;}
 	case T_CHAR:
 		if (write) {
