@@ -1,4 +1,4 @@
-# Arcadia: An implementation of the Arc programming language #
+# Arc++: An implementation of the Arc programming language #
 
 (C) 2016 Kim, Taegyoon
 
