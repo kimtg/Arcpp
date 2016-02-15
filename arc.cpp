@@ -1644,11 +1644,11 @@ string to_string(atom a, int write) {
 		s = "#<output>";
 		break;
 	case T_TABLE: {
-		s += "#<table:";
+		s += "#<table:(";
 		for (auto &p : a.as<table>()) {
-			s += "(" + to_string(p.first, write) + ", " + to_string(p.second, write) + ")";
+			s += "(" + to_string(p.first, write) + " . " + to_string(p.second, write) + ")";
 		}
-		s += ">";
+		s += ")>";
 		break;}
 	case T_CHAR:
 		if (write) {
