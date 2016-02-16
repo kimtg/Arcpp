@@ -1732,7 +1732,7 @@ error macex(atom expr, atom *result) {
 		if (op.type == T_SYM) {
 			/* Handle special forms */
 
-			if (is(op, sym_quote)) {
+			if (sym_is(op, sym_quote)) {
 				if (no(args) || !no(cdr(args))) {
 					return ERROR_ARGS;
 				}
@@ -1740,7 +1740,7 @@ error macex(atom expr, atom *result) {
 				*result = expr;
 				return ERROR_OK;
 			}
-			else if (is(op, sym_mac)) { /* (mac name (arg ...) body) */
+			else if (sym_is(op, sym_mac)) { /* (mac name (arg ...) body) */
 				atom name, macro;
 
 				if (no(args) || no(cdr(args)) || no(cdr(cdr(args)))) {
@@ -1870,7 +1870,7 @@ error eval_expr(atom expr, atom env, atom *result)
 
 		if (op.type == T_SYM) {
 			/* Handle special forms */
-			if (is(op, sym_if)) {
+			if (sym_is(op, sym_if)) {
 				atom cond;
 				atom p = args;
 				while (!no(p)) {
@@ -1891,7 +1891,7 @@ error eval_expr(atom expr, atom env, atom *result)
 				*result = nil;
 				return ERROR_OK;
 			}
-			else if (is(op, sym_assign)) {
+			else if (sym_is(op, sym_assign)) {
 				atom sym;
 				if (no(args) || no(cdr(args))) {
 					return ERROR_ARGS;
@@ -1913,7 +1913,7 @@ error eval_expr(atom expr, atom env, atom *result)
 					return ERROR_TYPE;
 				}
 			}
-			else if (is(op, sym_quote)) {
+			else if (sym_is(op, sym_quote)) {
 				if (no(args) || !no(cdr(args))) {
 					return ERROR_ARGS;
 				}
@@ -1921,14 +1921,14 @@ error eval_expr(atom expr, atom env, atom *result)
 				*result = car(args);
 				return ERROR_OK;
 			}			
-			else if (is(op, sym_fn)) {
+			else if (sym_is(op, sym_fn)) {
 				if (no(args)) {
 					return ERROR_ARGS;
 				}
 				err = make_closure(env, car(args), cdr(args), result);
 				return err;
 			}			
-			else if (is(op, sym_mac)) { /* (mac name (arg ...) body) */
+			else if (sym_is(op, sym_mac)) { /* (mac name (arg ...) body) */
 				atom name, macro;
 
 				if (no(args) || no(cdr(args)) || no(cdr(cdr(args)))) {
@@ -1951,7 +1951,7 @@ error eval_expr(atom expr, atom env, atom *result)
 					return err;
 				}
 			}
-			else if (is(op, sym_while)) {
+			else if (sym_is(op, sym_while)) {
 				atom pred;
 				if (no(args)) {
 					return ERROR_ARGS;

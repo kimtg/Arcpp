@@ -132,6 +132,8 @@ atom make_table();
 #define cdr(a) (static_pointer_cast<cons>((a).p)->cdr)
 #define no(a) ((a).type == T_NIL)
 
+#define sym_is(a, b) (static_pointer_cast<symbol>((a).p)->id == static_pointer_cast<symbol>((b).p)->id)
+
 extern hash<string> string_hash;
 extern hash<double> double_hash;
 
