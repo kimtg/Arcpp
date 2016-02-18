@@ -2094,10 +2094,7 @@ void arc_init(char *file_path) {
 
 	string dir_path = get_dir_path(file_path);
 	string lib = dir_path + "library.arc";
-	if (load_file(lib.c_str()) != ERROR_OK) {
-		lib = dir_path + "../library.arc";
-		load_file(lib.c_str());
-	}
+	load_file(lib.c_str());
 }
 
 char *get_dir_path(char *file_path) {
