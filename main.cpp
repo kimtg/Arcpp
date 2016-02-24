@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 	int i;
 	error err;
 	for (i = 1; i < argc; i++) {
-		err = load_file(argv[i]);
+		err = arc_load_file(argv[i]);
 		if (err) {
 			fprintf(stderr, "Cannot open file: %s\n", argv[i]);
 		}

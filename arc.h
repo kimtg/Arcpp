@@ -2,7 +2,7 @@
 #ifndef _INC_ARC
 #define _INC_ARC
 
-#define VERSION "0.9.26"
+#define VERSION "0.9.27"
 
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
@@ -114,7 +114,7 @@ string to_string(atom a, int write);
 char *strcat_alloc(char **dst, char *src);
 char *str_new();
 error macex_eval(atom expr, atom *result);
-error load_file(const char *path);
+error arc_load_file(const char *path);
 char *get_dir_path(char *file_path);
 void arc_init(char *file_path);
 #ifndef READLINE

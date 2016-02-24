@@ -1207,7 +1207,7 @@ error builtin_load(atom args, atom *result) {
 		atom a = car(args);
 		if (a.type != T_STRING) return ERROR_TYPE;
 		*result = nil;
-		return load_file(a.as<string>().c_str());
+		return arc_load_file(a.as<string>().c_str());
 	}
 	else return ERROR_ARGS;
 }
@@ -1812,7 +1812,7 @@ error macex_eval(atom expr, atom *result) {
 	return eval_expr(expr2, env, result);
 }
 
-error load_file(const char *path)
+error arc_load_file(const char *path)
 {
 	char *text;
 	error err = ERROR_OK;
@@ -2094,7 +2094,7 @@ void arc_init(char *file_path) {
 
 	string dir_path = get_dir_path(file_path);
 	string lib = dir_path + "library.arc";
-	load_file(lib.c_str());
+	arc_load_file(lib.c_str());
 }
 
 char *get_dir_path(char *file_path) {
