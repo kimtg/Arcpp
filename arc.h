@@ -2,7 +2,7 @@
 #ifndef _INC_ARC
 #define _INC_ARC
 
-#define VERSION "0.9.28"
+#define VERSION "0.9.29"
 
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
@@ -55,10 +55,20 @@ typedef enum {
 } error;
 
 typedef struct atom atom;
+typedef error(*builtin)(atom args, atom *result);
 
 struct atom {
 	enum type type;
-	shared_ptr<void> p;
+	shared_ptr<void> p; // reference-counted pointer
+
+	union { // primitive
+		double number;
+		char *symbol;
+		builtin bi;
+		FILE *fp;
+		char ch;
+		jmp_buf *jb;
+	} value;
 
 	template <typename T>
 	T &as() {
@@ -68,37 +78,9 @@ struct atom {
 	friend bool operator ==(const atom a, const atom b);
 };
 
-typedef error(* builtin)(atom args, atom *result);
-
 struct cons {
 	struct atom car, cdr;
 	cons(atom car, atom cdr) : car(car), cdr(cdr) {}
-};
-
-extern unordered_map<int, string> sym_of_id;
-extern unordered_map<string, int> id_of_sym;
-
-struct symbol {
-	int id;
-	symbol(string s) {
-		auto found = id_of_sym.find(s);
-		if (found != id_of_sym.end()) {
-			id = found->second;
-		}
-		else {
-			id = id_of_sym.size();
-			sym_of_id[id] = s;
-			id_of_sym[s] = id;
-		}
-	}
-
-	string to_string() {
-		return sym_of_id[id];
-	}
-
-	bool operator ==(symbol &b) {
-		return id == b.id;
-	}
 };
 
 typedef unordered_map<atom, atom> table;
@@ -132,7 +114,7 @@ atom make_table();
 #define cdr(a) (static_pointer_cast<cons>((a).p)->cdr)
 #define no(a) ((a).type == T_NIL)
 
-#define sym_is(a, b) (static_pointer_cast<symbol>((a).p)->id == static_pointer_cast<symbol>((b).p)->id)
+#define sym_is(a, b) ((a).value.symbol == (b).value.symbol)
 
 extern hash<string> string_hash;
 extern hash<double> double_hash;
@@ -159,7 +141,7 @@ namespace std {
 				}
 				return r;
 			case T_SYM:
-				return a.as<symbol>().id;
+				return (size_t)a.value.symbol;
 			case T_STRING: {
 				return string_hash(a.as<string>());
 			}

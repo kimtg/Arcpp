@@ -9,16 +9,10 @@ int arc_reader_unclosed = 0;
 hash<string> string_hash;
 hash<double> double_hash;
 atom thrown;
-unordered_map<int, string> sym_of_id;
-unordered_map<string, int> id_of_sym;
+unordered_map<string, char *> id_of_sym;
 
 bool operator ==(const atom a, const atom b) {
 	return is(a, b);
-}
-
-template<typename T>
-shared_ptr<T> shared(T x) {
-	return make_shared<T>(x);
 }
 
 atom make_cons(atom car_val, atom cdr_val)
@@ -33,7 +27,7 @@ atom make_number(double x)
 {
 	atom a;
 	a.type = T_NUM;
-	a.p = shared(x);
+	a.value.number = x;
 	return a;
 }
 
@@ -41,7 +35,15 @@ atom make_sym(string s)
 {
 	atom a;
 	a.type = T_SYM;
-	a.p = make_shared<symbol>(s);
+
+	auto found = id_of_sym.find(s);
+	if (found != id_of_sym.end()) {
+		a.value.symbol = found->second;
+		return a;
+	}
+
+	a.value.symbol = (char*)strdup(s.c_str());
+	id_of_sym[s] = a.value.symbol;
 	return a;
 }
 
@@ -49,7 +51,7 @@ atom make_builtin(builtin fn)
 {
 	atom a;
 	a.type = T_BUILTIN;
-	a.p = shared(fn);
+	a.value.bi = fn;
 	return a;
 }
 
@@ -82,28 +84,28 @@ atom make_string(const string x)
 {
 	atom a;
 	a.type = T_STRING;
-	a.p = shared(x);
+	a.p = make_shared<string>(x);
 	return a;
 }
 
 atom make_input(FILE *fp) {
 	atom a;
 	a.type = T_INPUT;
-	a.p = shared(fp);
+	a.value.fp = fp;
 	return a;
 }
 
 atom make_output(FILE *fp) {
 	atom a;
 	a.type = T_OUTPUT;
-	a.p = shared(fp);
+	a.value.fp = fp;
 	return a;
 }
 
 atom make_char(char c) {
 	atom a;
 	a.type = T_CHAR;
-	a.p = shared(c);
+	a.value.ch = c;
 	return a;
 }
 
@@ -167,7 +169,7 @@ error parse_simple(const char *start, const char *end, atom *result)
 	double val = strtod(start, &p);
 	if (p == end) {
 		result->type = T_NUM;
-		result->p = shared(val);
+		result->value.number = val;
 		return ERROR_OK;
 	}
 	else if (start[0] == '"') { /* "string" */
@@ -569,7 +571,7 @@ error apply(atom fn, atom args, atom *result)
 	atom env, arg_names, body;
 
 	if (fn.type == T_BUILTIN)
-		return fn.as<builtin>()(args, result);
+		return fn.value.bi(args, result);
 	else if (fn.type == T_CLOSURE) {
 		env = env_create(car(fn));
 		arg_names = car(cdr(fn));
@@ -623,17 +625,17 @@ error apply(atom fn, atom args, atom *result)
 	else if (fn.type == T_CONTINUATION) {
 		if (len(args) != 1) return ERROR_ARGS;
 		thrown = car(args);
-		longjmp(fn.as<jmp_buf>(), 1);
+		longjmp(*fn.value.jb, 1);
 	}
 	else if (fn.type == T_STRING) { /* implicit indexing for string */
 		if (len(args) != 1) return ERROR_ARGS;
-		long index = (long)car(args).as<double>();
+		long index = (long)car(args).value.number;
 		*result = make_char(fn.as<string>()[index]);
 		return ERROR_OK;
 	}
 	else if (fn.type == T_CONS && listp(fn)) { /* implicit indexing for list */
 		if (len(args) != 1) return ERROR_ARGS;
-		long index = (long)(car(args).as<double>());
+		long index = (long)(car(args).value.number);
 		atom a = fn;
 		long i;
 		for (i = 0; i < index; i++) {
@@ -735,12 +737,12 @@ error builtin_add(atom args, atom *result)
 	}
 	else {
 		if (car(args).type == T_NUM) {
-			double r = car(args).as<double>();
+			double r = car(args).value.number;
 			args = cdr(args);
 			while (!no(args)) {
 				if (args.type != T_CONS) return ERROR_ARGS;
 				if (car(args).type != T_NUM) return ERROR_TYPE;
-				r += (car(args).as<double>());
+				r += (car(args).value.number);
 				args = cdr(args);
 			}
 			*result = make_number(r);
@@ -776,16 +778,16 @@ error builtin_subtract(atom args, atom *result)
 	}
 	if (no(cdr(args))) { /* 1 argument */
 		if (car(args).type != T_NUM) return ERROR_TYPE;
-		*result = make_number(-(car(args).as<double>()));
+		*result = make_number(-(car(args).value.number));
 		return ERROR_OK;
 	}
 	if (car(args).type != T_NUM) return ERROR_TYPE;
-	double r = (car(args).as<double>());
+	double r = (car(args).value.number);
 	args = cdr(args);
 	while (!no(args)) {
 		if (args.type != T_CONS) return ERROR_ARGS;
 		if (car(args).type != T_NUM) return ERROR_TYPE;
-		r -= (car(args).as<double>());
+		r -= (car(args).value.number);
 		args = cdr(args);
 	}
 	*result = make_number(r);
@@ -798,7 +800,7 @@ error builtin_multiply(atom args, atom *result)
 	while (!no(args)) {
 		if (args.type != T_CONS) return ERROR_ARGS;
 		if (car(args).type != T_NUM) return ERROR_TYPE;
-		r *= (car(args).as<double>());
+		r *= (car(args).value.number);
 		args = cdr(args);
 	}
 	*result = make_number(r);
@@ -813,16 +815,16 @@ error builtin_divide(atom args, atom *result)
 	}
 	if (no(cdr(args))) { /* 1 argument */
 		if (car(args).type != T_NUM) return ERROR_TYPE;
-		*result = make_number(1.0 / (car(args).as<double>()));
+		*result = make_number(1.0 / (car(args).value.number));
 		return ERROR_OK;
 	}
 	if (car(args).type != T_NUM) return ERROR_TYPE;
-	double r = (car(args).as<double>());
+	double r = (car(args).value.number);
 	args = cdr(args);
 	while (!no(args)) {
 		if (args.type != T_CONS) return ERROR_ARGS;
 		if (car(args).type != T_NUM) return ERROR_TYPE;
-		r /= (car(args).as<double>());
+		r /= (car(args).value.number);
 		args = cdr(args);
 	}
 	*result = make_number(r);
@@ -838,7 +840,7 @@ error builtin_less(atom args, atom *result)
 	switch (car(args).type) {
 	case T_NUM:
 		while (!no(cdr(args))) {
-			if ((car(args).as<double>()) >= (car(cdr(args)).as<double>())) {
+			if ((car(args).value.number) >= (car(cdr(args)).value.number)) {
 				*result = nil;
 				return ERROR_OK;
 			}
@@ -873,7 +875,7 @@ error builtin_greater(atom args, atom *result)
 		while (!no(cdr(args))) {
 			a = car(args);
 			b = car(cdr(args));
-			if ((a.as<double>()) <= (b.as<double>())) {
+			if ((a.value.number) <= (b.value.number)) {
 				*result = nil;
 				return ERROR_OK;
 			}
@@ -922,23 +924,24 @@ bool is(atom a, atom b) {
 		case T_CONS:
 		case T_CLOSURE:
 		case T_MACRO:
-		case T_BUILTIN:
 			return a.p == b.p; // compare pointers
+		case T_BUILTIN:
+			return a.value.bi == b.value.bi;
 		case T_SYM:
-			return (a.as<symbol>()) == (b.as<symbol>());
+			return (a.value.symbol) == (b.value.symbol);
 		case T_NUM:
-			return (a.as<double>()) == (b.as<double>());
+			return (a.value.number) == (b.value.number);
 		case T_STRING:
 			return a.as<string>() == b.as<string>();
 		case T_CHAR:
-			return a.as<char>() == b.as<char>();
+			return a.value.ch == b.value.ch;
 		case T_TABLE:
 			return a.as<table>() == b.as<table>();
 		case T_INPUT:
 		case T_OUTPUT:
-			return a.as<FILE *>() == b.as<FILE *>();
+			return a.value.fp == b.value.fp;
 		case T_CONTINUATION:
-			return a.as<jmp_buf>() == b.as<jmp_buf>();
+			return a.value.jb == b.value.jb;
 		}
 	}
 	return false;
@@ -988,8 +991,8 @@ error builtin_mod(atom args, atom *result) {
 	if (len(args) != 2) return ERROR_ARGS;
 	atom dividend = car(args);
 	atom divisor = car(cdr(args));
-	double r = fmod(dividend.as<double>(), divisor.as<double>());
-	if (dividend.as<double>() * divisor.as<double>() < 0 && r != 0) r += divisor.as<double>();
+	double r = fmod(dividend.value.number, divisor.value.number);
+	if (dividend.value.number * divisor.value.number < 0 && r != 0) r += divisor.value.number;
 	*result = make_number(r);
 	return ERROR_OK;
 }
@@ -1023,7 +1026,7 @@ error builtin_string_sref(atom args, atom *result) {
 	obj = car(args);
 	if (obj.type != T_STRING) return ERROR_TYPE;
 	value = car(cdr(args));
-	obj.as<string>()[(long)index.as<double>()] = value.as<char>();
+	obj.as<string>()[(long)index.value.number] = value.value.ch;
 	*result = value;
 	return ERROR_OK;
 }
@@ -1040,7 +1043,7 @@ error builtin_disp(atom args, atom *result) {
 		fp = stdout;
 		break;
 	case 2:
-		fp = car(cdr(args)).as<FILE *>();
+		fp = car(cdr(args)).value.fp;
 		break;
 	default:
 		return ERROR_ARGS;
@@ -1059,11 +1062,11 @@ error builtin_writeb(atom args, atom *result) {
 		fp = stdout;
 		break;
 	case 2:
-		fp = car(cdr(args)).as<FILE *>();
+		fp = car(cdr(args)).value.fp;
 		break;
 	default: return ERROR_ARGS;
 	}
-	fputc((int)(car(args).as<double>()), fp);
+	fputc((int)(car(args).value.number), fp);
 	*result = nil;
 	return ERROR_OK;
 }
@@ -1073,7 +1076,7 @@ error builtin_expt(atom args, atom *result) {
 	if (len(args) != 2) return ERROR_ARGS;
 	a = car(args);
 	b = car(cdr(args));
-	*result = make_number(pow((a.as<double>()), (b.as<double>())));
+	*result = make_number(pow((a.value.number), (b.value.number)));
 	return ERROR_OK;
 }
 
@@ -1081,7 +1084,7 @@ error builtin_log(atom args, atom *result) {
 	atom a;
 	if (len(args) != 1) return ERROR_ARGS;
 	a = car(args);
-	*result = make_number(log((a.as<double>())));
+	*result = make_number(log((a.value.number)));
 	return ERROR_OK;
 }
 
@@ -1089,7 +1092,7 @@ error builtin_sqrt(atom args, atom *result) {
 	atom a;
 	if (len(args) != 1) return ERROR_ARGS;
 	a = car(args);
-	*result = make_number(sqrt((a.as<double>())));
+	*result = make_number(sqrt((a.value.number)));
 	return ERROR_OK;
 }
 
@@ -1100,7 +1103,7 @@ error builtin_readline(atom args, atom *result) {
 		str = readline("");
 	}
 	else if (l == 1) {
-		str = readline_fp("", car(args).as<FILE *>());
+		str = readline_fp("", car(args).value.fp);
 	}
 	else {
 		return ERROR_ARGS;
@@ -1121,7 +1124,7 @@ double rand_double() {
 error builtin_rand(atom args, atom *result) {
 	long alen = len(args);
 	if (alen == 0) *result = make_number(rand_double());
-	else if (alen == 1) *result = make_number(floor(rand_double() * (car(args).as<double>())));
+	else if (alen == 1) *result = make_number(floor(rand_double() * (car(args).value.number)));
 	else return ERROR_ARGS;
 	return ERROR_OK;
 }
@@ -1220,13 +1223,13 @@ error builtin_int(atom args, atom *result) {
 			*result = make_number(round(atof(a.as<string>().c_str())));
 			break;
 		case T_SYM:
-			*result = make_number(round(atof(a.as<symbol>().to_string().c_str())));
+			*result = make_number(round(atof(a.value.symbol)));
 			break;
 		case T_NUM:
-			*result = make_number(round((a.as<double>())));
+			*result = make_number(round((a.value.number)));
 			break;
 		case T_CHAR:
-			*result = make_number(a.as<char>());
+			*result = make_number(a.value.ch);
 			break;
 		default:
 			return ERROR_TYPE;
@@ -1240,7 +1243,7 @@ error builtin_trunc(atom args, atom *result) {
 	if (len(args) == 1) {
 		atom a = car(args);
 		if (a.type != T_NUM) return ERROR_TYPE;
-		*result = make_number(trunc((a.as<double>())));
+		*result = make_number(trunc((a.value.number)));
 		return ERROR_OK;
 	}
 	else return ERROR_ARGS;
@@ -1250,7 +1253,7 @@ error builtin_sin(atom args, atom *result) {
 	if (len(args) == 1) {
 		atom a = car(args);
 		if (a.type != T_NUM) return ERROR_TYPE;
-		*result = make_number(sin((a.as<double>())));
+		*result = make_number(sin((a.value.number)));
 		return ERROR_OK;
 	}
 	else return ERROR_ARGS;
@@ -1260,7 +1263,7 @@ error builtin_cos(atom args, atom *result) {
 	if (len(args) == 1) {
 		atom a = car(args);
 		if (a.type != T_NUM) return ERROR_TYPE;
-		*result = make_number(cos((a.as<double>())));
+		*result = make_number(cos((a.value.number)));
 		return ERROR_OK;
 	}
 	else return ERROR_ARGS;
@@ -1270,7 +1273,7 @@ error builtin_tan(atom args, atom *result) {
 	if (len(args) == 1) {
 		atom a = car(args);
 		if (a.type != T_NUM) return ERROR_TYPE;
-		*result = make_number(tan(a.as<double>()));
+		*result = make_number(tan(a.value.number));
 		return ERROR_OK;
 	}
 	else return ERROR_ARGS;
@@ -1313,7 +1316,7 @@ error builtin_close(atom args, atom *result) {
 	if (len(args) == 1) {
 		atom a = car(args);
 		if (a.type != T_INPUT && a.type != T_OUTPUT) return ERROR_TYPE;
-		fclose(a.as<FILE *>());
+		fclose(a.value.fp);
 		*result = nil;
 		return ERROR_OK;
 	}
@@ -1328,7 +1331,7 @@ error builtin_readb(atom args, atom *result) {
 		fp = stdin;
 		break;
 	case 1:
-		fp = car(args).as<FILE *>();
+		fp = car(args).value.fp;
 		break;
 	default:
 		return ERROR_ARGS;
@@ -1340,7 +1343,7 @@ error builtin_readb(atom args, atom *result) {
 /* sread input-port eof */
 error builtin_sread(atom args, atom *result) {
 	if (len(args) != 2) return ERROR_ARGS;
-	FILE *fp = car(args).as<FILE *>();
+	FILE *fp = car(args).value.fp;
 	atom eof = car(cdr(args));
 	error err;
 	if (feof(fp)) {
@@ -1365,7 +1368,7 @@ error builtin_write(atom args, atom *result) {
 		fp = stdout;
 		break;
 	case 2:
-		fp = car(cdr(args)).as<FILE *>();
+		fp = car(cdr(args)).value.fp;
 		break;
 	default:
 		return ERROR_ARGS;
@@ -1381,13 +1384,13 @@ error builtin_write(atom args, atom *result) {
 /* newstring length [char] */
 error builtin_newstring(atom args, atom *result) {
 	long arg_len = len(args);
-	long length = (long)car(args).as<double>();
+	long length = (long)car(args).value.number;
 	char c = 0;
 	char *s;
 	switch (arg_len) {
 	case 1: break;
 	case 2:
-		c = car(cdr(args)).as<char>();
+		c = car(cdr(args)).value.ch;
 		break;
 	default:
 		return ERROR_ARGS;
@@ -1454,16 +1457,16 @@ error builtin_coerce(atom args, atom *result) {
 	type = car(cdr(args));
 	switch (obj.type) {
 	case T_CHAR:
-		if (is(type, sym_int) || is(type, sym_num)) *result = make_number(obj.as<char>());
+		if (is(type, sym_int) || is(type, sym_num)) *result = make_number(obj.value.ch);
 		else if (is(type, sym_string)) {
 			char *buf = (char *) malloc(2);
-			buf[0] = obj.as<char>();
+			buf[0] = obj.value.ch;
 			buf[1] = '\0';
 			*result = make_string(buf);
 		}
 		else if (is(type, sym_sym)) {
 			char buf[2];
-			buf[0] = obj.as<char>();
+			buf[0] = obj.value.ch;
 			buf[1] = '\0';
 			*result = make_sym(buf);
 		}
@@ -1473,8 +1476,8 @@ error builtin_coerce(atom args, atom *result) {
 			return ERROR_TYPE;
 		break;
 	case T_NUM:
-		if (is(type, sym_int)) *result = make_number(floor(obj.as<double>()));
-		else if (is(type, sym_char)) *result = make_char((char)obj.as<double>());
+		if (is(type, sym_int)) *result = make_number(floor(obj.value.number));
+		else if (is(type, sym_char)) *result = make_char((char)obj.value.number);
 		else if (is(type, sym_string)) {
 			*result = make_string(to_string(obj, 0));
 		}
@@ -1504,7 +1507,7 @@ error builtin_coerce(atom args, atom *result) {
 			string s;
 			atom p;
 			for (p = obj; !no(p); p = cdr(p)) {
-				s += car(p).as<char>();
+				s += car(p).value.ch;
 			}
 			*result = make_string(s);
 		}
@@ -1515,7 +1518,7 @@ error builtin_coerce(atom args, atom *result) {
 		break;
 	case T_SYM:
 		if (is(type, sym_string)) {
-			*result = make_string(obj.as<symbol>().to_string());
+			*result = make_string(obj.value.symbol);
 		}
 		else if (is(type, sym_sym))
 			*result = obj;
@@ -1563,10 +1566,10 @@ error builtin_len(atom args, atom *result) {
 	return ERROR_OK;
 }
 
-atom make_continuation(jmp_buf jb) {
+atom make_continuation(jmp_buf *jb) {
   atom a;
   a.type = T_CONTINUATION;
-  a.p = shared(jb);
+  a.value.jb = jb;
   return a;
 }
 
@@ -1580,7 +1583,7 @@ error builtin_ccc(atom args, atom *result) {
     *result = thrown;
     return ERROR_OK;
   }
-  return apply(a, make_cons(make_continuation(jb), nil), result);
+  return apply(a, make_cons(make_continuation(&jb), nil), result);
 }
 
 /* end builtin */
@@ -1607,7 +1610,7 @@ string to_string(atom a, int write) {
 		s += ")";
 		break;
 	case T_SYM:
-		s = a.as<symbol>().to_string();
+		s = a.value.symbol;
 		break;
 	case T_STRING:
 		if (write) s += "\"";
@@ -1617,14 +1620,14 @@ string to_string(atom a, int write) {
 	case T_NUM:
 	{
 		stringstream ss;
-		ss << setprecision(16) << a.as<double>();
+		ss << setprecision(16) << a.value.number;
 		s = ss.str();
 		break;
 	}
 	case T_BUILTIN:
 	{
 		stringstream ss;
-		ss << "#<builtin:" << a.as<builtin>() << ">";
+		ss << "#<builtin:" << (void *)a.value.bi << ">";
 		s = ss.str();
 		break;
 	}
@@ -1653,18 +1656,18 @@ string to_string(atom a, int write) {
 	case T_CHAR:
 		if (write) {
 			s += "#\\";
-			switch (a.as<char>()) {
+			switch (a.value.ch) {
 			case '\0': s += "nul"; break;
 			case '\r': s += "return"; break;
 			case '\n': s += "newline"; break;
 			case '\t': s += "tab"; break;
 			case ' ': s += "space"; break;
 			default:
-				s += a.as<char>();
+				s += a.value.ch;
 			}
 		}
 		else {
-			s[0] = a.as<char>();
+			s[0] = a.value.ch;
 			s[1] = '\0';
 		}
 		break;
