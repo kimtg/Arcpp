@@ -1045,7 +1045,7 @@ error builtin_disp(atom args, atom *result) {
 	default:
 		return ERROR_ARGS;
 	}
-	cout << to_string(car(args), 0);
+	fprintf(fp, "%s", to_string(car(args), 0).c_str());
 	*result = nil;
 	return ERROR_OK;
 }
@@ -1848,7 +1848,7 @@ error arc_load_file(const char *path)
 	}
 }
 
-error eval_expr(atom expr, atom env, atom *result)
+error eval_expr(atom &expr, atom &env, atom *result)
 {
 	error err = ERROR_OK;
 
