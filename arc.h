@@ -108,7 +108,7 @@ error apply(atom fn, atom args, atom *result);
 int listp(atom expr);
 char *slurp_fp(FILE *fp);
 char *slurp(const char *path);
-error eval_expr(atom &expr, atom &env, atom *result);
+error eval_expr(atom expr, atom env, atom *result);
 error macex(atom expr, atom *result);
 string to_string(atom a, int write);
 char *strcat_alloc(char **dst, char *src);

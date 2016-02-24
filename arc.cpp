@@ -1848,7 +1848,7 @@ error arc_load_file(const char *path)
 	}
 }
 
-error eval_expr(atom &expr, atom &env, atom *result)
+error eval_expr(atom expr, atom env, atom *result)
 {
 	error err = ERROR_OK;
 
