@@ -1853,7 +1853,8 @@ error arc_load_file(const char *path)
 
 error eval_expr(atom expr, atom env, atom *result)
 {
-	error err = ERROR_OK;
+	error err;
+start_eval:
 
 	cur_expr = expr; /* for error reporting */
 	if (expr.type == T_SYM) {
@@ -1874,22 +1875,24 @@ error eval_expr(atom expr, atom env, atom *result)
 		if (op.type == T_SYM) {
 			/* Handle special forms */
 			if (sym_is(op, sym_if)) {
-				atom cond;
-				atom p = args;
-				while (!no(p)) {
-					err = eval_expr(car(p), env, &cond);
+				atom *p = &args;
+				while (!no(*p)) {
+					atom cond;
+					if (no(cdr(*p))) { /* else */
+						/* tail call optimization of else part */
+						expr = car(*p);
+						goto start_eval;
+					}
+					err = eval_expr(car(*p), env, &cond);
 					if (err) {
 						return err;
 					}
-					if (no(cdr(p))) {
-						*result = cond;
-						return ERROR_OK;
+					if (!no(cond)) { /* then */
+						/* tail call optimization of err = eval_expr(car(cdr(*p)), env, result); */
+						expr = car(cdr(*p));
+						goto start_eval;
 					}
-					if (!no(cond)) {
-						err = eval_expr(car(cdr(p)), env, result);
-						return err;
-					}
-					p = cdr(cdr(p));
+					p = &cdr(cdr(*p));
 				}
 				*result = nil;
 				return ERROR_OK;
@@ -2006,7 +2009,72 @@ error eval_expr(atom expr, atom env, atom *result)
 
 			p = cdr(p);
 		}
-		err = apply(op, args, result);
+
+		if (op.type == T_CLOSURE) {
+			/* tail call optimization of err = apply(op, args, result); */
+			atom fn = op;
+			atom env2, arg_names, body;
+			env2 = env_create(car(fn));
+			arg_names = car(cdr(fn));
+			body = cdr(cdr(fn));
+
+			/* Bind the arguments */
+			while (!no(arg_names)) {
+				if (arg_names.type == T_SYM) {
+					env_assign(env2, arg_names, args);
+					args = nil;
+					break;
+				}
+				atom arg_name = car(arg_names);
+				if (arg_name.type == T_SYM) {
+					if (no(args)) {/* missing argument */
+						return ERROR_ARGS;
+					}
+					env_assign(env2, arg_name, car(args));
+					args = cdr(args);
+				}
+				else { /* (o ARG [DEFAULT]) */
+					atom val;
+					if (no(args)) { /* missing argument */
+						if (no(cdr(cdr(arg_name))))
+							val = nil;
+						else {
+							error err = eval_expr(car(cdr(cdr(arg_name))), env2, &val);
+							if (err) {
+								return err;
+							}
+						}
+					} else {
+						val = car(args);
+						args = cdr(args);
+					}
+					env_assign(env2, car(cdr(arg_name)), val);
+				}
+				arg_names = cdr(arg_names);
+			}
+			if (!no(args)) {
+				return ERROR_ARGS;
+			}
+
+			/* Evaluate the body */
+			while (!no(body)) {
+				if (no(cdr(body))) {
+					/* tail call */
+					expr = car(body);
+					env = env2;
+					goto start_eval;
+				}
+				error err = eval_expr(car(body), env2, result);
+				if (err) {
+					return err;
+				}
+				body = cdr(body);
+			}
+			return ERROR_OK;
+		}
+		else {
+			err = apply(op, args, result);
+		}		
 		return err;
 	}
 }
