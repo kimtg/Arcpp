@@ -646,7 +646,7 @@ namespace arc {
 			thrown = car(args);
 			longjmp(*fn.value.jb, 1);
 		}
-		else if (fn.type == T_STRING) { /* implicit indexing for std::string */
+		else if (fn.type == T_STRING) { /* implicit indexing for string */
 			if (len(args) != 1) return ERROR_ARGS;
 			long index = (long)car(args).value.number;
 			*result = make_char(fn.as<std::string>()[index]);
@@ -747,7 +747,7 @@ namespace arc {
 
 	/*
 	+ args
-	Addition. This operator also performs std::string and list concatenation.
+	Addition. This operator also performs string and list concatenation.
 	*/
 	error builtin_add(atom args, atom *result)
 	{
@@ -1037,7 +1037,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	/* std::string-sref obj value index */
+	/* string-sref obj value index */
 	error builtin_string_sref(atom args, atom *result) {
 		atom index, obj, value;
 		if (len(args) != 3) return ERROR_ARGS;
@@ -1418,7 +1418,7 @@ namespace arc {
 		int i;
 		for (i = 0; i < length; i++)
 			s[i] = c;
-		s[length] = 0; /* end of std::string */
+		s[length] = 0; /* end of string */
 		*result = make_string(s);
 		return ERROR_OK;
 	}
@@ -1463,11 +1463,11 @@ namespace arc {
 	/* coerce obj type */
 	/*
 	Coerces object to a new type.
-	A char can be coerced to int, num, std::string, or sym.
-	A number can be coerced to int, char, or std::string.
-	A std::string can be coerced to sym, cons (char list), num, or int.
-	A list of characters can be coerced to a std::string.
-	A symbol can be coerced to a std::string.
+	A char can be coerced to int, num, string, or sym.
+	A number can be coerced to int, char, or string.
+	A string can be coerced to sym, cons (char list), num, or int.
+	A list of characters can be coerced to a string.
+	A symbol can be coerced to a string.
 	*/
 	error builtin_coerce(atom args, atom *result) {
 		atom obj, type;
