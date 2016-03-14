@@ -9,7 +9,7 @@ readline: CXXFLAGS+=-DREADLINE
 readline: LDFLAGS+=-lreadline
 readline: $(BIN)
 
-mingw: CXX=mingw32-g++
+mingw: CXXFLAGS=-Wall -O3 -c -std=gnu++11
 mingw: main.o arc.o ico.o
 	$(CXX) -o $(BIN) main.o arc.o ico.o $(LDFLAGS)
 
