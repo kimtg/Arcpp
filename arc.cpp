@@ -27,7 +27,7 @@ namespace arc {
 	}
 
 	bool operator ==(const atom a, const atom b) {
-		return is(a, b);
+		return iso(a, b);
 	}
 
 	atom make_cons(atom car_val, atom cdr_val)
@@ -964,6 +964,20 @@ namespace arc {
 			}
 		}
 		return false;
+	}
+
+	bool iso(atom a, atom b) {
+		if (a.type == b.type) {
+			switch (a.type) {
+			case T_CONS:
+			case T_CLOSURE:
+			case T_MACRO:
+				return iso(a.as<cons>().car, b.as<cons>().car) && iso(a.as<cons>().cdr, b.as<cons>().cdr);
+			default:
+				return is(a, b);
+			}
+		}
+		return 0;
 	}
 
 	error builtin_is(atom args, atom *result)

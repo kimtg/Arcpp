@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.10.1";
+	const char VERSION[] = "0.10.2";
 
 	enum type {
 		T_NIL,
@@ -104,6 +104,7 @@ namespace arc {
 	void print_expr(atom a);
 	void print_error(error e);
 	bool is(atom a, atom b);
+	bool iso(atom a, atom b);
 	atom make_table();
 	void repl();
 	/* end forward */
@@ -139,22 +140,21 @@ namespace std {
 				}
 				return r;
 			case arc::T_SYM:
-				return (size_t)a.value.symbol;
+				return hash<char *>()(a.value.symbol);
 			case arc::T_STRING: {
 				return hash<string>()(a.as<string>());
 			}
 			case arc::T_NUM: {
-				return hash<double>()(a.as<double>());
+				return hash<double>()(a.value.number);
 			}
-			case arc::T_BUILTIN:
-				return (size_t)a.p.get() / sizeof(a.p.get());
 			case arc::T_CLOSURE:
 				return hash<arc::atom>()(cdr(a));
 			case arc::T_MACRO:
 				return hash<arc::atom>()(cdr(a));
+			case arc::T_BUILTIN:
 			case arc::T_INPUT:
 			case arc::T_OUTPUT:
-				return (size_t)a.p.get() / sizeof(a.p.get());
+				return hash<void *>()(a.p.get());
 			default:
 				return 0;
 			}
