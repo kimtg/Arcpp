@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.10.2";
+	const char VERSION[] = "0.10.3";
 
 	enum type {
 		T_NIL,
@@ -122,7 +122,7 @@ namespace std {
 	template<>
 	struct hash<arc::atom> {
 		size_t operator ()(arc::atom a) const {
-			size_t r = 0;
+			size_t r = 1;
 			switch (a.type) {
 			case arc::T_NIL:
 				return 0;
