@@ -2061,16 +2061,26 @@ namespace arc {
 			}
 
 			/* Evaulate arguments */
-			args = copy_list(args);
-			atom p = args;
-			while (!no(p)) {
-				err = eval_expr(car(p), env, &car(p));
+			atom head = nil, tail;
+			atom *p = &args;
+			while (!no(*p)) {
+				atom r;
+				err = eval_expr(car(*p), env, &r);
 				if (err) {
 					return err;
 				}
+				if (no(head)) {
+					head = make_cons(r, nil);
+					tail = head;
+				}
+				else {
+					cdr(tail) = make_cons(r, nil);
+					tail = cdr(tail);
+				}
 
-				p = cdr(p);
+				p = &cdr(*p);
 			}
+			args = head;
 
 			if (op.type == T_CLOSURE) {
 				/* tail call optimization of err = apply(op, args, result); */
