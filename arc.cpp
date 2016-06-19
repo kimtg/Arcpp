@@ -9,7 +9,7 @@ namespace arc {
 	atom cur_expr;
 	int arc_reader_unclosed = 0;
 	atom thrown;
-	std::unordered_map<std::string, char *> id_of_sym;
+	std::unordered_map<std::string, std::string *> id_of_sym;
 
 	atom & car(atom & a) {
 		return std::static_pointer_cast<arc::cons>(a.p)->car;
@@ -58,7 +58,7 @@ namespace arc {
 			return a;
 		}
 
-		a.value.symbol = (char*)strdup(s.c_str());
+		a.value.symbol = new std::string(s);
 		id_of_sym[s] = a.value.symbol;
 		return a;
 	}
@@ -1286,7 +1286,7 @@ namespace arc {
 				*result = make_number(round(atof(a.as<std::string>().c_str())));
 				break;
 			case T_SYM:
-				*result = make_number(round(atof(a.value.symbol)));
+				*result = make_number(round(atof(a.value.symbol->c_str())));
 				break;
 			case T_NUM:
 				*result = make_number(round((a.value.number)));
@@ -1581,7 +1581,7 @@ namespace arc {
 			break;
 		case T_SYM:
 			if (is(type, sym_string)) {
-				*result = make_string(obj.value.symbol);
+				*result = make_string(*obj.value.symbol);
 			}
 			else if (is(type, sym_sym))
 				*result = obj;
@@ -1673,7 +1673,7 @@ namespace arc {
 			s += ")";
 			break;
 		case T_SYM:
-			s = a.value.symbol;
+			s = *a.value.symbol;
 			break;
 		case T_STRING:
 			if (write) s += "\"";

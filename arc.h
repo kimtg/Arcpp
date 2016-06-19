@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.10.7";
+	const char VERSION[] = "0.10.8";
 
 	enum type {
 		T_NIL,
@@ -62,7 +62,7 @@ namespace arc {
 
 		union { // primitive
 			double number;
-			char *symbol;
+			std::string *symbol;
 			builtin bi;
 			FILE *fp;
 			char ch;
@@ -137,7 +137,7 @@ namespace std {
 				}
 				return r;
 			case arc::T_SYM:
-				return hash<char *>()(a.value.symbol);
+				return hash<std::string *>()(a.value.symbol);
 			case arc::T_STRING: {
 				return hash<string>()(a.as<string>());
 			}
