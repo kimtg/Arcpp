@@ -4,6 +4,7 @@ namespace arc {
 	const char *error_string[] = { "", "Syntax error", "Symbol not bound", "Wrong number of arguments", "Wrong type", "File error", "" };
 	const atom nil = { T_NIL };
 	atom env; /* the global environment */
+	/* symbols for faster execution */
 	atom sym_t, sym_quote, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_while, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char;
 	atom cur_expr;
 	int arc_reader_unclosed = 0;
@@ -1792,43 +1793,14 @@ namespace arc {
 		}
 		else {
 			atom op = car(expr);
-			atom args = cdr(expr);
 
-			if (op.type == T_SYM) {
-				/* Handle special forms */
-
-				if (sym_is(op, sym_quote)) {
-					if (no(args) || !no(cdr(args))) {
-						return ERROR_ARGS;
-					}
-
-					*result = expr;
-					return ERROR_OK;
-				}
-				else if (sym_is(op, sym_mac)) { /* (mac name (arg ...) body) */
-					atom name, macro;
-
-					if (no(args) || no(cdr(args)) || no(cdr(cdr(args)))) {
-						return ERROR_ARGS;
-					}
-
-					name = car(args);
-					if (name.type != T_SYM) {
-						return ERROR_TYPE;
-					}
-
-					err = make_closure(env, car(cdr(args)), cdr(cdr(args)), &macro);
-					if (!err) {
-						macro.type = T_MACRO;
-						*result = make_cons(sym_quote, make_cons(car(args), nil));
-						err = env_assign(env, name, macro);
-						return err;
-					}
-					else {
-						return err;
-					}
-				}
+			/* Handle quote */
+			if (op.type == T_SYM && op.value.symbol == sym_quote.value.symbol) {
+				*result = expr;
+				return ERROR_OK;
 			}
+
+			atom args = cdr(expr);
 
 			/* Is it a macro? */
 			if (op.type == T_SYM && !env_get(env, op, result) && result->type == T_MACRO) {
@@ -1836,6 +1808,7 @@ namespace arc {
 				op = *result;
 
 				op.type = T_CLOSURE;
+
 				atom result2;
 				err = apply(op, args, &result2);
 				if (err) {
@@ -1848,15 +1821,14 @@ namespace arc {
 				return ERROR_OK;
 			}
 			else {
-				/* preprocess elements */
+				/* macex elements */
 				atom expr2 = copy_list(expr);
-				atom p = expr2;
-				while (!no(p)) {
-					err = macex(car(p), &car(p));
+				atom h;
+				for (h = expr2; !no(h); h = cdr(h)) {
+					err = macex(car(h), &car(h));
 					if (err) {
 						return err;
 					}
-					p = cdr(p);
 				}
 				*result = expr2;
 				return ERROR_OK;
@@ -2042,18 +2014,6 @@ namespace arc {
 			/* Evaluate operator */
 			err = eval_expr(op, env, &op);
 			if (err) {
-				return err;
-			}
-
-			/* Is it a macro? */
-			if (op.type == T_MACRO) {
-				atom expansion;
-				op.type = T_CLOSURE;
-				err = apply(op, args, &expansion);
-				if (err) {
-					return err;
-				}
-				err = eval_expr(expansion, env, result);
 				return err;
 			}
 

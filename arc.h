@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.10.6";
+	const char VERSION[] = "0.10.7";
 
 	enum type {
 		T_NIL,
@@ -113,9 +113,6 @@ namespace arc {
 	atom & cdr(atom & a);
 	bool no(atom & a);
 	bool sym_is(const atom & a, const atom & b);
-
-	/* symbols for faster execution */
-	extern atom sym_t, sym_quote, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_while, sym_cons, sym_sym, sym_string, sym_num, sym_table;
 }
 
 namespace std {
