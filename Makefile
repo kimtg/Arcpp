@@ -18,7 +18,7 @@ ico.o: arc.rc arc.ico
 
 main.o: main.cpp arc.h
 	$(CXX) $(CXXFLAGS) main.cpp
-arc.o: arc.cpp arc.h
+arc.o: arc.cpp arc.h library.h
 	$(CXX) $(CXXFLAGS) arc.cpp
 run: $(BIN)
 	./$(BIN)

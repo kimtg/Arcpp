@@ -41,6 +41,7 @@ OPTIONS:
 
 ## Features
 * Reference counting garbage collection (shared_ptr)
+* Tail call optimization
 * Implicit indexing
 * [Syntax sugar](http://arclanguage.github.io/ref/evaluation.html) (`[]`, `~`, `.`, `!`, `:`)
 
