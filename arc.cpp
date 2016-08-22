@@ -500,19 +500,17 @@ namespace arc {
 	error env_get(atom env, atom symbol, atom *result)
 	{
 		while (1) {
-			atom parent = car(env);
-
 			auto &tbl = cdr(env).as<table>();
 			auto found = tbl.find(symbol);
 			if (found != tbl.end()) {
 				*result = found->second;
 				return ERROR_OK;
 			}
-			if (no(parent)) {
+			if (no(car(env))) {
 				/*printf("%s: ", symbol.p.symbol);*/
 				return ERROR_UNBOUND;
 			}
-			env = parent;
+			env = car(env);
 		}
 	}
 
