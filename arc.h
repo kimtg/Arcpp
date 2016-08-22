@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.11";
+	const char VERSION[] = "0.12";
 
 	enum type {
 		T_NIL,
@@ -54,7 +54,7 @@ namespace arc {
 	} error;
 
 	typedef struct atom atom;
-	typedef error(*builtin)(atom args, atom *result);
+	typedef error(*builtin)(std::vector<atom> &vargs, atom *result);
 
 	struct atom {
 		enum type type;
@@ -85,7 +85,7 @@ namespace arc {
 	typedef std::unordered_map<atom, atom> table;
 
 	/* forward declarations */
-	error apply(atom fn, atom args, atom *result);
+	error apply(atom fn, std::vector<atom> &args, atom *result);
 	int listp(atom expr);
 	char *slurp_fp(FILE *fp);
 	char *slurp(const char *path);
@@ -94,7 +94,6 @@ namespace arc {
 	std::string to_string(atom a, int write);
 	error macex_eval(atom expr, atom *result);
 	error arc_load_file(const char *path);
-	char *get_dir_path(char *file_path);
 	void arc_init();
 #ifndef READLINE
 	char *readline(const char *prompt);
@@ -107,6 +106,7 @@ namespace arc {
 	bool iso(atom a, atom b);
 	atom make_table();
 	void repl();
+	atom make_cons(atom car_val, atom cdr_val);
 	/* end forward */
 
 	atom & car(atom & a);

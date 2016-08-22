@@ -11,6 +11,23 @@ namespace arc {
 	atom thrown;
 	std::unordered_map<std::string, std::string *> id_of_sym;
 
+	atom vector_to_atom(std::vector<atom> &a, int start) {
+		atom r = nil;
+		int i;
+		for (i = a.size() - 1; i >= start; i--) {
+			r = make_cons(a[i], r);
+		}
+		return r;
+	}
+
+	std::vector<atom> atom_to_vector(atom a) {
+		std::vector<atom> r;
+		for (; !no(a); a = cdr(a)) {
+			r.push_back(car(a));
+		}
+		return r;
+	}
+
 	atom & car(atom & a) {
 		return std::static_pointer_cast<arc::cons>(a.p)->car;
 	}
@@ -583,34 +600,33 @@ namespace arc {
 		return a;
 	}
 
-	error apply(atom fn, atom args, atom *result)
+	error apply(atom fn, std::vector<atom> &vargs, atom *result)
 	{
-		atom env, arg_names, body;
-
 		if (fn.type == T_BUILTIN)
-			return fn.value.bi(args, result);
+			return fn.value.bi(vargs, result);
 		else if (fn.type == T_CLOSURE) {
-			env = env_create(car(fn));
-			arg_names = car(cdr(fn));
-			body = cdr(cdr(fn));
+			atom env = env_create(car(fn));
+			atom arg_names = car(cdr(fn));
+			atom body = cdr(cdr(fn));
 
 			/* Bind the arguments */
+			size_t i = 0;
 			while (!no(arg_names)) {
 				if (arg_names.type == T_SYM) {
-					env_assign(env, arg_names, args);
-					args = nil;
+					env_assign(env, arg_names, vector_to_atom(vargs, i));
+					i = vargs.size();
 					break;
 				}
 				atom arg_name = car(arg_names);
 				if (arg_name.type == T_SYM) {
-					if (no(args)) /* missing argument */
+					if (i > vargs.size()) /* missing argument */
 						return ERROR_ARGS;
-					env_assign(env, arg_name, car(args));
-					args = cdr(args);
+					env_assign(env, arg_name, vargs[i]);
+					i++;
 				}
 				else { /* (o ARG [DEFAULT]) */
 					atom val;
-					if (no(args)) { /* missing argument */
+					if (i >= vargs.size()) { /* missing argument */
 						if (no(cdr(cdr(arg_name))))
 							val = nil;
 						else {
@@ -619,14 +635,14 @@ namespace arc {
 						}
 					}
 					else {
-						val = car(args);
-						args = cdr(args);
+						val = vargs[i];
+						i++;
 					}
 					env_assign(env, car(cdr(arg_name)), val);
 				}
 				arg_names = cdr(arg_names);
 			}
-			if (!no(args))
+			if (i < vargs.size())
 				return ERROR_ARGS;
 
 			/* Evaluate the body */
@@ -641,19 +657,19 @@ namespace arc {
 			return ERROR_OK;
 		}
 		else if (fn.type == T_CONTINUATION) {
-			if (len(args) != 1) return ERROR_ARGS;
-			thrown = car(args);
+			if (vargs.size() != 1) return ERROR_ARGS;
+			thrown = vargs[0];
 			longjmp(*fn.value.jb, 1);
 		}
 		else if (fn.type == T_STRING) { /* implicit indexing for string */
-			if (len(args) != 1) return ERROR_ARGS;
-			long index = (long)car(args).value.number;
+			if (vargs.size() != 1) return ERROR_ARGS;
+			long index = (long)(vargs[0]).value.number;
 			*result = make_char(fn.as<std::string>()[index]);
 			return ERROR_OK;
 		}
 		else if (fn.type == T_CONS && listp(fn)) { /* implicit indexing for list */
-			if (len(args) != 1) return ERROR_ARGS;
-			long index = (long)(car(args).value.number);
+			if (vargs.size() != 1) return ERROR_ARGS;
+			long index = (long)(vargs[0]).value.number;
 			atom a = fn;
 			long i;
 			for (i = 0; i < index; i++) {
@@ -667,9 +683,9 @@ namespace arc {
 			return ERROR_OK;
 		}
 		else if (fn.type == T_TABLE) { /* implicit indexing for table */
-			long len1 = len(args);
+			long len1 = vargs.size();
 			if (len1 != 1 && len1 != 2) return ERROR_ARGS;
-			atom key = car(args);
+			atom key = vargs[0];
 			auto &tbl = fn.as<table>();
 			auto found = tbl.find(key);
 			if (found != tbl.end()) {
@@ -677,7 +693,7 @@ namespace arc {
 			}
 			else {
 				if (len1 == 2) /* default value is specified */
-					*result = car(cdr(args));
+					*result = vargs[1];
 				else
 					*result = nil;
 			}
@@ -688,42 +704,45 @@ namespace arc {
 		}
 	}
 
-	error builtin_car(atom args, atom *result)
+	/* start builtin */
+	error builtin_car(std::vector<atom> &vargs, atom *result)
 	{
-		if (no(args) || !no(cdr(args)))
+		if (vargs.size() != 1)
 			return ERROR_ARGS;
 
-		if (no(car(args)))
+		atom a = vargs[0];
+		if (no(a))
 			*result = nil;
-		else if (car(args).type != T_CONS)
+		else if (a.type != T_CONS)
 			return ERROR_TYPE;
 		else
-			*result = car(car(args));
+			*result = car(a);
 
 		return ERROR_OK;
 	}
 
-	error builtin_cdr(atom args, atom *result)
+	error builtin_cdr(std::vector<atom> &vargs, atom *result)
 	{
-		if (no(args) || !no(cdr(args)))
+		if (vargs.size() != 1)
 			return ERROR_ARGS;
 
-		if (no(car(args)))
+		atom a = vargs[0];
+		if (no(a))
 			*result = nil;
-		else if (car(args).type != T_CONS)
+		else if (a.type != T_CONS)
 			return ERROR_TYPE;
 		else
-			*result = cdr(car(args));
+			*result = cdr(a);
 
 		return ERROR_OK;
 	}
 
-	error builtin_cons(atom args, atom *result)
+	error builtin_cons(std::vector<atom> &vargs, atom *result)
 	{
-		if (no(args) || no(cdr(args)) || !no(cdr(cdr(args))))
+		if (vargs.size() != 2)
 			return ERROR_ARGS;
 
-		*result = make_cons(car(args), car(cdr(args)));
+		*result = make_cons(vargs[0], vargs[1]);
 
 		return ERROR_OK;
 	}
@@ -745,42 +764,38 @@ namespace arc {
 	}
 
 	/*
-	+ args
-	Addition. This operator also performs string and list concatenation.
++ args
+Addition. This operator also performs string and list concatenation.
 	*/
-	error builtin_add(atom args, atom *result)
+	error builtin_add(std::vector<atom> &vargs, atom *result)
 	{
-		if (no(args)) {
+		if (vargs.size() == 0) {
 			*result = make_number(0);
 		}
 		else {
-			if (car(args).type == T_NUM) {
-				double r = car(args).value.number;
-				args = cdr(args);
-				while (!no(args)) {
-					if (args.type != T_CONS) return ERROR_ARGS;
-					if (car(args).type != T_NUM) return ERROR_TYPE;
-					r += (car(args).value.number);
-					args = cdr(args);
+			if (vargs[0].type == T_NUM) {
+				double r = vargs[0].value.number;
+				size_t i;
+				for (i = 1; i < vargs.size(); i++) {
+					if (vargs[i].type != T_NUM) return ERROR_TYPE;
+					r += vargs[i].value.number;
 				}
 				*result = make_number(r);
 			}
-			else if (car(args).type == T_STRING) {
+			else if (vargs[0].type == T_STRING) {
 				std::string buf;
-				while (!no(args)) {
-					if (args.type != T_CONS) return ERROR_ARGS;
-					std::string s = to_string(car(args), 0);
+				size_t i;
+				for (i = 0; i < vargs.size(); i++) {
+					std::string s = to_string(vargs[i], 0);
 					buf += s;
-					args = cdr(args);
 				}
 				*result = make_string(buf);
 			}
-			else if (car(args).type == T_CONS || car(args).type == T_NIL) {
+			else if (vargs[0].type == T_CONS || vargs[0].type == T_NIL) {
 				atom acc = nil;
-				while (!no(args)) {
-					if (args.type != T_CONS) return ERROR_ARGS;
-					acc = append(acc, car(args));
-					args = cdr(args);
+				size_t i;
+				for (i = 0; i < vargs.size(); i++) {
+					acc = append(acc, vargs[i]);
 				}
 				*result = acc;
 			}
@@ -788,91 +803,85 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error builtin_subtract(atom args, atom *result)
+	error builtin_subtract(std::vector<atom> &vargs, atom *result)
 	{
-		if (no(args)) { /* 0 argument */
+		if (vargs.size() == 0) { /* 0 argument */
 			*result = make_number(0);
 			return ERROR_OK;
 		}
-		if (no(cdr(args))) { /* 1 argument */
-			if (car(args).type != T_NUM) return ERROR_TYPE;
-			*result = make_number(-(car(args).value.number));
+		if (vargs.size() == 1) { /* 1 argument */
+			if (vargs[0].type != T_NUM) return ERROR_TYPE;
+			*result = make_number(-vargs[0].value.number);
 			return ERROR_OK;
 		}
-		if (car(args).type != T_NUM) return ERROR_TYPE;
-		double r = (car(args).value.number);
-		args = cdr(args);
-		while (!no(args)) {
-			if (args.type != T_CONS) return ERROR_ARGS;
-			if (car(args).type != T_NUM) return ERROR_TYPE;
-			r -= (car(args).value.number);
-			args = cdr(args);
+		if (vargs[0].type != T_NUM) return ERROR_TYPE;
+		double r = vargs[0].value.number;
+		size_t i;
+		for (i = 1; i < vargs.size(); i++) {
+			if (vargs[i].type != T_NUM) return ERROR_TYPE;
+			r -= vargs[i].value.number;
 		}
 		*result = make_number(r);
 		return ERROR_OK;
 	}
 
-	error builtin_multiply(atom args, atom *result)
+	error builtin_multiply(std::vector<atom> &vargs, atom *result)
 	{
 		double r = 1;
-		while (!no(args)) {
-			if (args.type != T_CONS) return ERROR_ARGS;
-			if (car(args).type != T_NUM) return ERROR_TYPE;
-			r *= (car(args).value.number);
-			args = cdr(args);
+		size_t i;
+		for (i = 0; i < vargs.size(); i++) {
+			if (vargs[i].type != T_NUM) return ERROR_TYPE;
+			r *= vargs[i].value.number;
 		}
 		*result = make_number(r);
 		return ERROR_OK;
 	}
 
-	error builtin_divide(atom args, atom *result)
+	error builtin_divide(std::vector<atom> &vargs, atom *result)
 	{
-		if (no(args)) { /* 0 argument */
+		if (vargs.size() == 0) { /* 0 argument */
 			*result = make_number(1);
 			return ERROR_OK;
 		}
-		if (no(cdr(args))) { /* 1 argument */
-			if (car(args).type != T_NUM) return ERROR_TYPE;
-			*result = make_number(1.0 / (car(args).value.number));
+		if (vargs.size() == 1) { /* 1 argument */
+			if (vargs[0].type != T_NUM) return ERROR_TYPE;
+			*result = make_number(1.0 / vargs[0].value.number);
 			return ERROR_OK;
 		}
-		if (car(args).type != T_NUM) return ERROR_TYPE;
-		double r = (car(args).value.number);
-		args = cdr(args);
-		while (!no(args)) {
-			if (args.type != T_CONS) return ERROR_ARGS;
-			if (car(args).type != T_NUM) return ERROR_TYPE;
-			r /= (car(args).value.number);
-			args = cdr(args);
+		if (vargs[0].type != T_NUM) return ERROR_TYPE;
+		double r = vargs[0].value.number;
+		size_t i;
+		for (i = 1; i < vargs.size(); i++) {
+			if (vargs[i].type != T_NUM) return ERROR_TYPE;
+			r /= vargs[i].value.number;
 		}
 		*result = make_number(r);
 		return ERROR_OK;
 	}
 
-	error builtin_less(atom args, atom *result)
+	error builtin_less(std::vector<atom> &vargs, atom *result)
 	{
-		if (no(args) || no(cdr(args))) {
+		if (vargs.size() <= 1) {
 			*result = sym_t;
 			return ERROR_OK;
 		}
-		switch (car(args).type) {
+		size_t i;
+		switch (vargs[0].type) {
 		case T_NUM:
-			while (!no(cdr(args))) {
-				if ((car(args).value.number) >= (car(cdr(args)).value.number)) {
+			for (i = 0; i < vargs.size() - 1; i++) {
+				if (vargs[i].value.number >= vargs[i + 1].value.number) {
 					*result = nil;
 					return ERROR_OK;
 				}
-				args = cdr(args);
 			}
 			*result = sym_t;
 			return ERROR_OK;
 		case T_STRING:
-			while (!no(cdr(args))) {
-				if ((car(args).as<std::string>()) >= (car(cdr(args)).as<std::string>())) {
+			for (i = 0; i < vargs.size() - 1; i++) {
+				if (vargs[i].as<std::string>() >= vargs[i + 1].as<std::string>()) {
 					*result = nil;
 					return ERROR_OK;
 				}
-				args = cdr(args);
 			}
 			*result = sym_t;
 			return ERROR_OK;
@@ -881,35 +890,29 @@ namespace arc {
 		}
 	}
 
-	error builtin_greater(atom args, atom *result)
+	error builtin_greater(std::vector<atom> &vargs, atom *result)
 	{
-		atom a, b;
-		if (no(args) || no(cdr(args))) {
+		if (vargs.size() <= 1) {
 			*result = sym_t;
 			return ERROR_OK;
 		}
-		switch (car(args).type) {
+		size_t i;
+		switch (vargs[0].type) {
 		case T_NUM:
-			while (!no(cdr(args))) {
-				a = car(args);
-				b = car(cdr(args));
-				if ((a.value.number) <= (b.value.number)) {
+			for (i = 0; i < vargs.size() - 1; i++) {
+				if (vargs[i].value.number <= vargs[i + 1].value.number) {
 					*result = nil;
 					return ERROR_OK;
 				}
-				args = cdr(args);
 			}
 			*result = sym_t;
 			return ERROR_OK;
 		case T_STRING:
-			while (!no(cdr(args))) {
-				a = car(args);
-				b = car(cdr(args));
-				if (a.as<std::string>() <= (b.as<std::string>())) {
+			for (i = 0; i < vargs.size() - 1; i++) {
+				if (vargs[i].as<std::string>() <= vargs[i + 1].as<std::string>()) {
 					*result = nil;
 					return ERROR_OK;
 				}
-				args = cdr(args);
 			}
 			*result = sym_t;
 			return ERROR_OK;
@@ -918,20 +921,16 @@ namespace arc {
 		}
 	}
 
-	error builtin_apply(atom args, atom *result)
+	error builtin_apply(std::vector<atom> &vargs, atom *result)
 	{
 		atom fn;
 
-		if (no(args) || no(cdr(args)) || !no(cdr(cdr(args))))
+		if (vargs.size() != 2)
 			return ERROR_ARGS;
 
-		fn = car(args);
-		args = car(cdr(args));
-
-		if (!listp(args))
-			return ERROR_SYNTAX;
-
-		return apply(fn, args, result);
+		fn = vargs[0];
+		auto v = atom_to_vector(vargs[1]);
+		return apply(fn, v, result);
 	}
 
 	bool is(atom a, atom b) {
@@ -978,60 +977,60 @@ namespace arc {
 		}
 		return 0;
 	}
-
-	error builtin_is(atom args, atom *result)
+	
+	error builtin_is(std::vector<atom> &vargs, atom *result)
 	{
 		atom a, b;
-		if (no(args) || no(cdr(args))) {
+		if (vargs.size() <= 1) {
 			*result = sym_t;
 			return ERROR_OK;
 		}
-		while (!no(cdr(args))) {
-			a = car(args);
-			b = car(cdr(args));
+		size_t i;
+		for (i = 0; i < vargs.size() - 1; i++) {
+			a = vargs[i];
+			b = vargs[i + 1];
 			if (!is(a, b)) {
 				*result = nil;
 				return ERROR_OK;
 			}
-			args = cdr(args);
 		}
 		*result = sym_t;
 		return ERROR_OK;
 	}
 
-	error builtin_scar(atom args, atom *result) {
-		if (len(args) != 2) return ERROR_ARGS;
-		atom place = car(args), value;
+	error builtin_scar(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 2) return ERROR_ARGS;
+		atom place = vargs[0], value;
 		if (place.type != T_CONS) return ERROR_TYPE;
-		value = car(cdr(args));
+		value = vargs[1];
 		place.as<cons>().car = value;
 		*result = value;
 		return ERROR_OK;
 	}
 
-	error builtin_scdr(atom args, atom *result) {
-		if (len(args) != 2) return ERROR_ARGS;
-		atom place = car(args), value;
+	error builtin_scdr(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 2) return ERROR_ARGS;
+		atom place = vargs[0], value;
 		if (place.type != T_CONS) return ERROR_TYPE;
-		value = car(cdr(args));
+		value = vargs[1];
 		place.as<cons>().cdr = value;
 		*result = value;
 		return ERROR_OK;
 	}
 
-	error builtin_mod(atom args, atom *result) {
-		if (len(args) != 2) return ERROR_ARGS;
-		atom dividend = car(args);
-		atom divisor = car(cdr(args));
+	error builtin_mod(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 2) return ERROR_ARGS;
+		atom dividend = vargs[0];
+		atom divisor = vargs[1];
 		double r = fmod(dividend.value.number, divisor.value.number);
 		if (dividend.value.number * divisor.value.number < 0 && r != 0) r += divisor.value.number;
 		*result = make_number(r);
 		return ERROR_OK;
 	}
 
-	error builtin_type(atom args, atom *result) {
-		if (len(args) != 1) return ERROR_ARGS;
-		atom x = car(args);
+	error builtin_type(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom x = vargs[0];
 		switch (x.type) {
 		case T_CONS: *result = sym_cons; break;
 		case T_SYM:
@@ -1051,21 +1050,21 @@ namespace arc {
 	}
 
 	/* string-sref obj value index */
-	error builtin_string_sref(atom args, atom *result) {
+	error builtin_string_sref(std::vector<atom> &vargs, atom *result) {
 		atom index, obj, value;
-		if (len(args) != 3) return ERROR_ARGS;
-		index = car(cdr(cdr(args)));
-		obj = car(args);
+		if (vargs.size() != 3) return ERROR_ARGS;
+		obj = vargs[0];
 		if (obj.type != T_STRING) return ERROR_TYPE;
-		value = car(cdr(args));
+		value = vargs[1];
+		index = vargs[2];
 		obj.as<std::string>()[(long)index.value.number] = value.value.ch;
-		*result = value;
+		*result = make_char(value.value.ch);
 		return ERROR_OK;
 	}
 
 	/* disp [arg [output-port]] */
-	error builtin_disp(atom args, atom *result) {
-		long l = len(args);
+	error builtin_disp(std::vector<atom> &vargs, atom *result) {
+		long l = vargs.size();
 		FILE *fp;
 		switch (l) {
 		case 0:
@@ -1075,18 +1074,18 @@ namespace arc {
 			fp = stdout;
 			break;
 		case 2:
-			fp = car(cdr(args)).value.fp;
+			fp = vargs[1].value.fp;
 			break;
 		default:
 			return ERROR_ARGS;
 		}
-		fprintf(fp, "%s", to_string(car(args), 0).c_str());
+		fprintf(fp, "%s", to_string(vargs[0], 0).c_str());
 		*result = nil;
 		return ERROR_OK;
 	}
 
-	error builtin_writeb(atom args, atom *result) {
-		long l = len(args);
+	error builtin_writeb(std::vector<atom> &vargs, atom *result) {
+		long l = vargs.size();
 		FILE *fp;
 		switch (l) {
 		case 0: return ERROR_ARGS;
@@ -1094,48 +1093,48 @@ namespace arc {
 			fp = stdout;
 			break;
 		case 2:
-			fp = car(cdr(args)).value.fp;
+			fp = vargs[1].value.fp;
 			break;
 		default: return ERROR_ARGS;
 		}
-		fputc((int)(car(args).value.number), fp);
+		fputc((int)vargs[0].value.number, fp);
 		*result = nil;
 		return ERROR_OK;
 	}
 
-	error builtin_expt(atom args, atom *result) {
+	error builtin_expt(std::vector<atom> &vargs, atom *result) {
 		atom a, b;
-		if (len(args) != 2) return ERROR_ARGS;
-		a = car(args);
-		b = car(cdr(args));
-		*result = make_number(pow((a.value.number), (b.value.number)));
+		if (vargs.size() != 2) return ERROR_ARGS;
+		a = vargs[0];
+		b = vargs[1];
+		*result = make_number(pow(a.value.number, b.value.number));
 		return ERROR_OK;
 	}
 
-	error builtin_log(atom args, atom *result) {
+	error builtin_log(std::vector<atom> &vargs, atom *result) {
 		atom a;
-		if (len(args) != 1) return ERROR_ARGS;
-		a = car(args);
-		*result = make_number(log((a.value.number)));
+		if (vargs.size() != 1) return ERROR_ARGS;
+		a = vargs[0];
+		*result = make_number(log(a.value.number));
 		return ERROR_OK;
 	}
 
-	error builtin_sqrt(atom args, atom *result) {
+	error builtin_sqrt(std::vector<atom> &vargs, atom *result) {
 		atom a;
-		if (len(args) != 1) return ERROR_ARGS;
-		a = car(args);
-		*result = make_number(sqrt((a.value.number)));
+		if (vargs.size() != 1) return ERROR_ARGS;
+		a = vargs[0];
+		*result = make_number(sqrt(a.value.number));
 		return ERROR_OK;
 	}
 
-	error builtin_readline(atom args, atom *result) {
-		long l = len(args);
+	error builtin_readline(std::vector<atom> &vargs, atom *result) {
+		long l = vargs.size();
 		char *str;
 		if (l == 0) {
 			str = readline("");
 		}
 		else if (l == 1) {
-			str = readline_fp("", car(args).value.fp);
+			str = readline_fp("", vargs[0].value.fp);
 		}
 		else {
 			return ERROR_ARGS;
@@ -1144,8 +1143,8 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error builtin_quit(atom args, atom *result) {
-		if (len(args) != 0) return ERROR_ARGS;
+	error builtin_quit(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 0) return ERROR_ARGS;
 		exit(0);
 	}
 
@@ -1153,10 +1152,10 @@ namespace arc {
 		return (double)rand() / ((double)RAND_MAX + 1.0);
 	}
 
-	error builtin_rand(atom args, atom *result) {
-		long alen = len(args);
+	error builtin_rand(std::vector<atom> &vargs, atom *result) {
+		long alen = vargs.size();
 		if (alen == 0) *result = make_number(rand_double());
-		else if (alen == 1) *result = make_number(floor(rand_double() * (car(args).value.number)));
+		else if (alen == 1) *result = make_number(floor(rand_double() * vargs[0].value.number));
 		else return ERROR_ARGS;
 		return ERROR_OK;
 	}
@@ -1182,17 +1181,17 @@ namespace arc {
 	}
 
 	/* read [input-source [eof]]
-	Reads a S-expression from the input-source, which can be either a string or an input-port. If the end of file is reached, nil is returned or the specified eof value. */
-	error builtin_read(atom args, atom *result) {
-		size_t alen = len(args);
+	   Reads a S-expression from the input-source, which can be either a string or an input-port. If the end of file is reached, nil is returned or the specified eof value. */
+	error builtin_read(std::vector<atom> &vargs, atom *result) {
+		size_t alen = vargs.size();
 		error err;
 		if (alen == 0) {
 			err = read_fp(stdin, result);
 		}
 		else if (alen <= 2) {
-			atom src = car(args);
+			atom src = vargs[0];
 			if (src.type == T_STRING) {
-				const char *s = car(args).as<std::string>().c_str();
+				const char *s = src.as<std::string>().c_str();
 				const char *buf = s;
 				err = read_expr(buf, &buf, result);
 			}
@@ -1210,7 +1209,7 @@ namespace arc {
 		if (err == ERROR_FILE) {
 			atom eof = nil; /* default value when EOF */
 			if (alen == 2) { /* specified return value when EOF */
-				eof = car(cdr(args));
+				eof = vargs[1];
 			}
 
 			*result = eof;
@@ -1221,54 +1220,54 @@ namespace arc {
 		}
 	}
 
-	error builtin_macex(atom args, atom *result) {
-		long alen = len(args);
+	error builtin_macex(std::vector<atom> &vargs, atom *result) {
+		long alen = vargs.size();
 		if (alen == 1) {
-			error err = macex(car(args), result);
+			error err = macex(vargs[0], result);
 			return err;
 		}
 		else return ERROR_ARGS;
 		return ERROR_OK;
 	}
 
-	error builtin_string(atom args, atom *result) {
+	error builtin_string(std::vector<atom> &vargs, atom *result) {
 		std::string s;
-		while (!no(args)) {
-			s += to_string(car(args), 0);
-			args = cdr(args);
+		size_t i;
+		for (i = 0; i < vargs.size(); i++) {
+			s += to_string(vargs[i], 0);
 		}
 		*result = make_string(s);
 		return ERROR_OK;
 	}
 
-	error builtin_sym(atom args, atom *result) {
-		long alen = len(args);
+	error builtin_sym(std::vector<atom> &vargs, atom *result) {
+		long alen = vargs.size();
 		if (alen == 1) {
-			*result = make_sym(to_string(car(args), 0));
+			*result = make_sym(to_string(vargs[0], 0));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_system(atom args, atom *result) {
-		long alen = len(args);
+	error builtin_system(std::vector<atom> &vargs, atom *result) {
+		long alen = vargs.size();
 		if (alen == 1) {
-			atom a = car(args);
+			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
-			*result = make_number(system(car(args).as<std::string>().c_str()));
+			*result = make_number(system(vargs[0].as<std::string>().c_str()));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_eval(atom args, atom *result) {
-		if (len(args) == 1) return macex_eval(car(args), result);
+	error builtin_eval(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) return macex_eval(vargs[0], result);
 		else return ERROR_ARGS;
 	}
 
-	error builtin_load(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_load(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
 			*result = nil;
 			return arc_load_file(a.as<std::string>().c_str());
@@ -1276,9 +1275,9 @@ namespace arc {
 		else return ERROR_ARGS;
 	}
 
-	error builtin_int(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_int(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			switch (a.type) {
 			case T_STRING:
 				*result = make_number(round(atof(a.as<std::string>().c_str())));
@@ -1287,7 +1286,7 @@ namespace arc {
 				*result = make_number(round(atof(a.value.symbol->c_str())));
 				break;
 			case T_NUM:
-				*result = make_number(round((a.value.number)));
+				*result = make_number(round(a.value.number));
 				break;
 			case T_CHAR:
 				*result = make_number(a.value.ch);
@@ -1300,39 +1299,39 @@ namespace arc {
 		else return ERROR_ARGS;
 	}
 
-	error builtin_trunc(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_trunc(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
-			*result = make_number(trunc((a.value.number)));
+			*result = make_number(trunc(a.value.number));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_sin(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_sin(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
-			*result = make_number(sin((a.value.number)));
+			*result = make_number(sin(a.value.number));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_cos(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_cos(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
-			*result = make_number(cos((a.value.number)));
+			*result = make_number(cos(a.value.number));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_tan(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_tan(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
 			*result = make_number(tan(a.value.number));
 			return ERROR_OK;
@@ -1340,9 +1339,9 @@ namespace arc {
 		else return ERROR_ARGS;
 	}
 
-	error builtin_bound(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_bound(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_SYM) return ERROR_TYPE;
 			error err = env_get(env, a, result);
 			*result = (err ? nil : sym_t);
@@ -1351,9 +1350,9 @@ namespace arc {
 		else return ERROR_ARGS;
 	}
 
-	error builtin_infile(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_infile(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
 			FILE *fp = fopen(a.as<std::string>().c_str(), "r");
 			*result = make_input(fp);
@@ -1362,9 +1361,9 @@ namespace arc {
 		else return ERROR_ARGS;
 	}
 
-	error builtin_outfile(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_outfile(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
 			FILE *fp = fopen(a.as<std::string>().c_str(), "w");
 			*result = make_output(fp);
@@ -1373,9 +1372,9 @@ namespace arc {
 		else return ERROR_ARGS;
 	}
 
-	error builtin_close(atom args, atom *result) {
-		if (len(args) == 1) {
-			atom a = car(args);
+	error builtin_close(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 1) {
+			atom a = vargs[0];
 			if (a.type != T_INPUT && a.type != T_OUTPUT) return ERROR_TYPE;
 			fclose(a.value.fp);
 			*result = nil;
@@ -1384,15 +1383,15 @@ namespace arc {
 		else return ERROR_ARGS;
 	}
 
-	error builtin_readb(atom args, atom *result) {
-		long l = len(args);
+	error builtin_readb(std::vector<atom> &vargs, atom *result) {
+		long l = vargs.size();
 		FILE *fp;
 		switch (l) {
 		case 0:
 			fp = stdin;
 			break;
 		case 1:
-			fp = car(args).value.fp;
+			fp = vargs[0].value.fp;
 			break;
 		default:
 			return ERROR_ARGS;
@@ -1402,10 +1401,10 @@ namespace arc {
 	}
 
 	/* sread input-port eof */
-	error builtin_sread(atom args, atom *result) {
-		if (len(args) != 2) return ERROR_ARGS;
-		FILE *fp = car(args).value.fp;
-		atom eof = car(cdr(args));
+	error builtin_sread(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 2) return ERROR_ARGS;
+		FILE *fp = vargs[0].value.fp;
+		atom eof = vargs[1];
 		error err;
 		if (feof(fp)) {
 			*result = eof;
@@ -1418,8 +1417,8 @@ namespace arc {
 	}
 
 	/* write [arg [output-port]] */
-	error builtin_write(atom args, atom *result) {
-		long l = len(args);
+	error builtin_write(std::vector<atom> &vargs, atom *result) {
+		long l = vargs.size();
 		FILE *fp;
 		switch (l) {
 		case 0:
@@ -1429,29 +1428,30 @@ namespace arc {
 			fp = stdout;
 			break;
 		case 2:
-			fp = car(cdr(args)).value.fp;
+			fp = vargs[1].value.fp;
 			break;
 		default:
 			return ERROR_ARGS;
 		}
-		atom a = car(args);
+		atom a = vargs[0];
 		if (a.type == T_STRING) fputc('"', fp);
-		std::cout << to_string(a, 1);
+		std::string s = to_string(a, 1);
+		fprintf(fp, "%s", s.c_str());
 		if (a.type == T_STRING) fputc('"', fp);
 		*result = nil;
 		return ERROR_OK;
 	}
 
 	/* newstring length [char] */
-	error builtin_newstring(atom args, atom *result) {
-		long arg_len = len(args);
-		long length = (long)car(args).value.number;
+	error builtin_newstring(std::vector<atom> &vargs, atom *result) {
+		long arg_len = vargs.size();
+		long length = (long)vargs[0].value.number;
 		char c = 0;
 		char *s;
 		switch (arg_len) {
 		case 1: break;
 		case 2:
-			c = car(cdr(args)).value.ch;
+			c = vargs[1].value.ch;
 			break;
 		default:
 			return ERROR_ARGS;
@@ -1465,24 +1465,28 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error builtin_table(atom args, atom *result) {
-		long arg_len = len(args);
+	error builtin_table(std::vector<atom> &vargs, atom *result) {
+		long arg_len = vargs.size();
 		if (arg_len != 0) return ERROR_ARGS;
 		*result = make_table();
 		return ERROR_OK;
 	}
 
 	/* maptable proc table */
-	error builtin_maptable(atom args, atom *result) {
-		long arg_len = len(args);
+	error builtin_maptable(std::vector<atom> &vargs, atom *result) {
+		long arg_len = vargs.size();
 		if (arg_len != 2) return ERROR_ARGS;
-		atom proc = car(args);
-		atom tbl = car(cdr(args));
+		atom &proc = vargs[0];
+		atom &tbl = vargs[1];
 		if (proc.type != T_BUILTIN && proc.type != T_CLOSURE) return ERROR_TYPE;
 		if (tbl.type != T_TABLE) return ERROR_TYPE;
 		auto &table1 = tbl.as<table>();
+		std::vector<atom> v;
 		for (auto &p : table1) {
-			error err = apply(proc, make_cons(p.first, make_cons(p.second, nil)), result);
+			v.clear();
+			v.push_back(p.first);
+			v.push_back(p.second);
+			error err = apply(proc, v, result);
 			if (err) return err;
 		}
 		*result = tbl;
@@ -1490,13 +1494,13 @@ namespace arc {
 	}
 
 	/* table-sref obj value index */
-	error builtin_table_sref(atom args, atom *result) {
+	error builtin_table_sref(std::vector<atom> &vargs, atom *result) {
 		atom index, obj, value;
-		if (len(args) != 3) return ERROR_ARGS;
-		index = car(cdr(cdr(args)));
-		obj = car(args);
+		if (vargs.size() != 3) return ERROR_ARGS;
+		obj = vargs[0];
 		if (obj.type != T_TABLE) return ERROR_TYPE;
-		value = car(cdr(args));
+		value = vargs[1];
+		index = vargs[2];
 		obj.as<table>()[index] = value;
 		*result = value;
 		return ERROR_OK;
@@ -1504,23 +1508,23 @@ namespace arc {
 
 	/* coerce obj type */
 	/*
-	Coerces object to a new type.
-	A char can be coerced to int, num, string, or sym.
-	A number can be coerced to int, char, or string.
-	A string can be coerced to sym, cons (char list), num, or int.
-	A list of characters can be coerced to a string.
-	A symbol can be coerced to a string.
+Coerces object to a new type.
+A char can be coerced to int, num, string, or sym.
+A number can be coerced to int, char, or string.
+A string can be coerced to sym, cons (char list), num, or int.
+A list of characters can be coerced to a string.
+A symbol can be coerced to a string.
 	*/
-	error builtin_coerce(atom args, atom *result) {
+	error builtin_coerce(std::vector<atom> &vargs, atom *result) {
 		atom obj, type;
-		if (len(args) != 2) return ERROR_ARGS;
-		obj = car(args);
-		type = car(cdr(args));
+		if (vargs.size() != 2) return ERROR_ARGS;
+		obj = vargs[0];
+		type = vargs[1];
 		switch (obj.type) {
 		case T_CHAR:
 			if (is(type, sym_int) || is(type, sym_num)) *result = make_number(obj.value.ch);
 			else if (is(type, sym_string)) {
-				char *buf = (char *)malloc(2);
+				char *buf = (char *) malloc(2);
 				buf[0] = obj.value.ch;
 				buf[1] = '\0';
 				*result = make_string(buf);
@@ -1592,26 +1596,26 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error builtin_flushout(atom args, atom *result) {
-		if (len(args) != 0) return ERROR_ARGS;
+	error builtin_flushout(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 0) return ERROR_ARGS;
 		fflush(stdout);
 		*result = sym_t;
 		return ERROR_OK;
 	}
 
-	error builtin_err(atom args, atom *result) {
-		if (len(args) == 0) return ERROR_ARGS;
+	error builtin_err(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() == 0) return ERROR_ARGS;
 		cur_expr = nil;
-		atom p = args;
-		for (; !no(p); p = cdr(p)) {
-			std::cout << to_string(car(p), 0) << '\n';
+		size_t i;
+		for (i = 0; i < vargs.size(); i++) {
+			std::cout << to_string(vargs[i], 0) << '\n';
 		}
 		return ERROR_USER;
 	}
 
-	error builtin_len(atom args, atom *result) {
-		if (len(args) != 1) return ERROR_ARGS;
-		atom a = car(args);
+	error builtin_len(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom a = vargs[0];
 		if (a.type == T_CONS) {
 			*result = make_number(len(a));
 		}
@@ -1634,9 +1638,9 @@ namespace arc {
 		return a;
 	}
 
-	error builtin_ccc(atom args, atom *result) {
-		if (len(args) != 1) return ERROR_ARGS;
-		atom a = car(args);
+	error builtin_ccc(std::vector<atom> &vargs, atom *result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom a = vargs[0];
 		if (a.type != T_BUILTIN && a.type != T_CLOSURE) return ERROR_TYPE;
 		jmp_buf jb;
 		int val = setjmp(jb);
@@ -1644,9 +1648,9 @@ namespace arc {
 			*result = thrown;
 			return ERROR_OK;
 		}
-		return apply(a, make_cons(make_continuation(&jb), nil), result);
+		return apply(a, vargs, result);
 	}
-
+	
 	/* end builtin */
 
 	std::string to_string(atom a, int write) {
@@ -1808,7 +1812,8 @@ namespace arc {
 				op.type = T_CLOSURE;
 
 				atom result2;
-				err = apply(op, args, &result2);
+				std::vector<atom> vargs = atom_to_vector(args);
+				err = apply(op, vargs, &result2);
 				if (err) {
 					return err;
 				}
@@ -2016,13 +2021,14 @@ namespace arc {
 			}
 
 			/* Evaluate operator */
-			err = eval_expr(op, env, &op);
+			atom fn;
+			err = eval_expr(op, env, &fn);
 			if (err) {
 				return err;
 			}
 
 			/* Evaulate arguments */
-			atom head = nil, tail;
+			std::vector<atom> vargs;
 			atom *p = &args;
 			while (!no(*p)) {
 				atom r;
@@ -2030,83 +2036,65 @@ namespace arc {
 				if (err) {
 					return err;
 				}
-				if (no(head)) {
-					head = make_cons(r, nil);
-					tail = head;
-				}
-				else {
-					cdr(tail) = make_cons(r, nil);
-					tail = cdr(tail);
-				}
-
+				vargs.push_back(r);
 				p = &cdr(*p);
 			}
-			args = head;
 
-			if (op.type == T_CLOSURE) {
-				/* tail call optimization of err = apply(op, args, result); */
-				atom env2, arg_names, body;
-				env2 = env_create(car(op));
-				arg_names = car(cdr(op));
-				body = cdr(cdr(op));
+			/* tail call optimization of err = apply(fn, args, result); */
+			if (fn.type == T_CLOSURE) {
+				atom env = env_create(car(fn));
+				atom arg_names = car(cdr(fn));
+				atom body = cdr(cdr(fn));
 
 				/* Bind the arguments */
+				size_t i = 0;
 				while (!no(arg_names)) {
 					if (arg_names.type == T_SYM) {
-						env_assign(env2, arg_names, args);
-						args = nil;
+						env_assign(env, arg_names, vector_to_atom(vargs, i));
+						i = vargs.size();
 						break;
 					}
 					atom arg_name = car(arg_names);
 					if (arg_name.type == T_SYM) {
-						if (no(args)) {/* missing argument */
+						if (i > vargs.size()) /* missing argument */
 							return ERROR_ARGS;
-						}
-						env_assign(env2, arg_name, car(args));
-						args = cdr(args);
+						env_assign(env, arg_name, vargs[i]);
+						i++;
 					}
 					else { /* (o ARG [DEFAULT]) */
 						atom val;
-						if (no(args)) { /* missing argument */
+						if (i >= vargs.size()) { /* missing argument */
 							if (no(cdr(cdr(arg_name))))
 								val = nil;
 							else {
-								error err = eval_expr(car(cdr(cdr(arg_name))), env2, &val);
-								if (err) {
-									return err;
-								}
+								error err = eval_expr(car(cdr(cdr(arg_name))), env, &val);
+								if (err) return err;
 							}
 						}
 						else {
-							val = car(args);
-							args = cdr(args);
+							val = vargs[i];
+							i++;
 						}
-						env_assign(env2, car(cdr(arg_name)), val);
+						env_assign(env, car(cdr(arg_name)), val);
 					}
 					arg_names = cdr(arg_names);
 				}
-				if (!no(args)) {
+				if (i < vargs.size())
 					return ERROR_ARGS;
-				}
 
 				/* Evaluate the body */
+				*result = nil;
 				while (!no(body)) {
-					if (no(cdr(body))) {
-						/* tail call */
-						expr = car(body);
-						env = env2;
-						goto start_eval;
-					}
-					error err = eval_expr(car(body), env2, result);
-					if (err) {
+					error err = eval_expr(car(body), env, result);
+					if (err)
 						return err;
-					}
 					body = cdr(body);
 				}
+
 				return ERROR_OK;
 			}
 			else {
-				err = apply(op, args, result);
+				err = apply(fn, vargs, result);
 			}
 			return err;
 		}
