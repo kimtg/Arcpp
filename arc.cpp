@@ -1846,6 +1846,32 @@ namespace arc {
 		return eval_expr(expr2, env, result);
 	}
 
+	error load_string(const char *text) {
+		error err = ERROR_OK;
+		const char *p = text;
+		atom expr;
+		while (1) {
+			if (read_expr(p, &p, &expr) != ERROR_OK) {
+				break;
+			}
+			atom result;
+			err = macex_eval(expr, &result);
+			if (err) {
+				print_error(err);
+				printf("error in expression:\n\t");
+				print_expr(expr);
+				putchar('\n');
+				break;
+			}
+			//else {
+			//	print_expr(result);
+			//	putchar(' ');
+			//}
+		}
+		//puts("");
+		return err;
+	}
+	
 	error arc_load_file(const char *path)
 	{
 		char *text;
@@ -1853,27 +1879,7 @@ namespace arc {
 		/* printf("Reading %s...\n", path); */
 		text = slurp(path);
 		if (text) {
-			const char *p = text;
-			atom expr;
-			while (1) {
-				if (read_expr(p, &p, &expr) != ERROR_OK) {
-					break;
-				}
-				atom result;
-				err = macex_eval(expr, &result);
-				if (err) {
-					print_error(err);
-					printf("error in expression:\n\t");
-					print_expr(expr);
-					putchar('\n');
-					break;
-				}
-				//else {
-				//	print_expr(result);
-				//	putchar(' ');
-				//}
-			}
-			//puts("");
+			err = load_string(text);
 			free(text);
 			return err;
 		}
@@ -2108,7 +2114,7 @@ namespace arc {
 		}
 	}
 
-	void arc_init(char *file_path) {
+	void arc_init() {
 #ifdef READLINE
 		rl_bind_key('\t', rl_insert); /* prevent tab completion */
 #endif
@@ -2192,25 +2198,10 @@ namespace arc {
 		env_assign(env, make_sym("len"), make_builtin(builtin_len));
 		env_assign(env, make_sym("ccc"), make_builtin(builtin_ccc));
 
-		std::string dir_path = get_dir_path(file_path);
-		std::string lib = dir_path + "library.arc";
-		arc_load_file(lib.c_str());
-	}
-
-	char *get_dir_path(char *file_path) {
-		size_t len = strlen(file_path);
-		long i = len - 1;
-		for (; i >= 0; i--) {
-			char c = file_path[i];
-			if (c == '\\' || c == '/') {
-				break;
-			}
-		}
-		size_t len2 = i + 1;
-		char *r = (char *)malloc((len2 + 1) * sizeof(char));
-		memcpy(r, file_path, len2);
-		r[len2] = 0;
-		return r;
+		const char *stdlib =
+			#include "library.h"
+			;
+		load_string(stdlib);
 	}
 
 	void print_error(error e) {

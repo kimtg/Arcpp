@@ -8,7 +8,7 @@ int main(int argc, char **argv)
 {
 	if (argc == 1) { /* REPL */
 		print_logo();
-		arc::arc_init(argv[0]);
+		arc::arc_init();
 		arc::repl();
 		puts("");
 		return 0;
@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 	}
 
 	/* execute files */
-	arc::arc_init(argv[0]);
+	arc::arc_init();
 	int i;
 	arc::error err;
 	for (i = 1; i < argc; i++) {

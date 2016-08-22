@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.10.8";
+	const char VERSION[] = "0.11";
 
 	enum type {
 		T_NIL,
@@ -95,7 +95,7 @@ namespace arc {
 	error macex_eval(atom expr, atom *result);
 	error arc_load_file(const char *path);
 	char *get_dir_path(char *file_path);
-	void arc_init(char *file_path);
+	void arc_init();
 #ifndef READLINE
 	char *readline(const char *prompt);
 #endif

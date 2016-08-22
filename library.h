@@ -1,3 +1,4 @@
+R"EOF(
 (mac = args (cons 'assign args))
 
 (= list (fn args args))
@@ -1005,3 +1006,5 @@ non-nil."
     `(withs (,gacc 0 ,sumfn [if _ (++ ,gacc)])
        ,@body
        ,gacc)))
+
+)EOF"
