@@ -557,7 +557,8 @@ from index 'start' (0 by default)."
        (iflet fx (f car.xs)
          (cons fx (trues f cdr.xs))
          (trues f cdr.xs))))
-
+)EOF"
+R"EOF(
 (def rem (test seq)
   "Returns all elements of 'seq' except those satisfying 'test'."
   (with (f (testify test) type* (type seq))
@@ -566,6 +567,7 @@ from index 'start' (0 by default)."
 	   (if (no s)        nil
 	       (f car.s)     (self cdr.s)
 	       'else         (cons car.s (self cdr.s)))) (coerce seq 'cons)) type*)))
+
 
 (def keep (test seq)
   "Returns all elements of 'seq' for which 'test' passes."
