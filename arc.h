@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.12";
+	const char VERSION[] = "0.13";
 
 	enum type {
 		T_NIL,
@@ -83,13 +83,27 @@ namespace arc {
 	};
 
 	typedef std::unordered_map<atom, atom> table;
+	typedef std::unordered_map<std::string *, atom> env_table;
+
+	struct env {
+		std::shared_ptr<struct env> parent;
+		std::shared_ptr<env_table> table;
+		env(std::shared_ptr<struct env> parent) : parent(parent), table(std::make_shared<env_table>()) {}
+	};
+
+	struct closure {
+		std::shared_ptr<struct env> env;
+		atom args;
+		atom body;
+		closure(std::shared_ptr<struct env> env, atom args, atom body) : env(env), args(args), body(body) {}
+	};
 
 	/* forward declarations */
 	error apply(atom fn, std::vector<atom> &args, atom *result);
 	int listp(atom expr);
 	char *slurp_fp(FILE *fp);
 	char *slurp(const char *path);
-	error eval_expr(atom expr, atom env, atom *result);
+	error eval_expr(atom expr, std::shared_ptr<struct env> env, atom *result);
 	error macex(atom expr, atom *result);
 	std::string to_string(atom a, int write);
 	error macex_eval(atom expr, atom *result);
