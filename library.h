@@ -40,13 +40,6 @@ For example, this is always true:
     (cons (f (car xs))
           (map1 f (cdr xs)))))
 
-(def map (proc . arg-lists)
-  (if (car arg-lists)
-      (cons (apply proc (map1 car arg-lists))
-            (apply map (cons proc
-                             (map1 cdr arg-lists))))
-      nil))
-
 (def caar (x) (car (car x)))
 (def cadr (x) (car (cdr x)))
 (def cddr (x) (cdr (cdr x)))
@@ -114,7 +107,7 @@ function 'f' to them."
 
 (mac w/uniq (names . body)
   (if (isa names 'cons)
-    `(with ,(apply join (map (fn (x) (list x '(uniq))) names))
+    `(with ,(apply join (map1 (fn (x) (list x '(uniq))) names))
        ,@body)
     `(let ,names (uniq) ,@body)))
 
@@ -212,7 +205,7 @@ the same elements (be *isomorphic*) without being identical."
 
 ; = place value ...
 (mac = args
-     (cons 'do (map (fn (p) (with (place (car p) value (cadr p))
+     (cons 'do (map1 (fn (p) (with (place (car p) value (cadr p))
 			      (if (isa place 'cons)
 				  (if (is (car place) 'car)
 				      (list 'scar (cadr place) value)
@@ -505,13 +498,13 @@ Useful in higher-order functions, or to index into lists, strings, tables, etc."
 (def listtab (al)
   "Converts association list 'al' of (key value) pairs into a table. Reverse of [[tablist]]."
   (let h (table)
-    (map (fn (p) (with (k (car p) v (cadr p)) (= (h k) v)))
+    (map1 (fn (p) (with (k (car p) v (cadr p)) (= (h k) v)))
          al)
     h))
 
 (mac obj args
 "Creates a table out of a list of alternating keys and values."
-  `(listtab (list ,@(map (fn (p) (with (k (car p) v (cadr p))
+  `(listtab (list ,@(map1 (fn (p) (with (k (car p) v (cadr p))
 				   `(list ',k ,v)))
                          (pair args)))))
 
@@ -552,7 +545,7 @@ from index 'start' (0 by default)."
 	      (self cdr.seq (+ n 1)))) (nthcdr start seq) start)))
 
 (def trues (f xs)
-"Returns (map f xs) dropping any nils."
+"Returns (map1 f xs) dropping any nils."
   (and xs
        (iflet fx (f car.xs)
          (cons fx (trues f cdr.xs))
@@ -585,11 +578,11 @@ R"EOF(
 
 (mac wipe args
 "Sets each place in 'args' to nil."
-  `(do ,@(map (fn (a) `(= ,a nil)) args)))
+  `(do ,@(map1 (fn (a) `(= ,a nil)) args)))
 
 (mac set args
   "Sets each place in 'args' to t."
-  `(do ,@(map (fn (a) `(= ,a t)) args)))
+  `(do ,@(map1 (fn (a) `(= ,a t)) args)))
 
 (mac aif (expr . branches)
 "Like [[if]], but also puts the value of 'expr' in variable 'it'."
@@ -805,7 +798,7 @@ Name comes from (cons 1 2) being printed with a dot: (1 . 1)."
 ; common uses of map
 (def mappend (f . args)
 "Like [[map]] followed by append."
-  (apply + (apply + (map [map f _] args))))
+  (apply + (apply + (map1 [map f _] args))))
 
 (def range-bounce (i max)
 "Munges index 'i' in slices of a sequence of length 'max'. First element starts
@@ -984,7 +977,7 @@ not preserved."
         (throw index)))))
 
 (def sum (f xs)
-"Returns total of all elements in (map f xs)."
+"Returns total of all elements in (map1 f xs)."
   (let n 0
     (each x xs
 	  (++ n f.x))
@@ -1009,4 +1002,10 @@ non-nil."
        ,@body
        ,gacc)))
 
+(def map (proc . arg-lists)
+  (if (and (car arg-lists) (all idfn (map1 car arg-lists)))
+      (cons (apply proc (map1 car arg-lists))
+            (apply map (cons proc
+                             (map1 cdr arg-lists))))
+      nil))
 )EOF"
