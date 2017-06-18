@@ -73,6 +73,10 @@ namespace arc {
 		}
 	}
 
+	cons::cons(atom car, atom cdr) : car(car), cdr(cdr) {}
+	env::env(std::shared_ptr<struct env> parent) : parent(parent), table(std::make_shared<env_table>()) {}
+	closure::closure(std::shared_ptr<struct env> env, atom args, atom body) : env(env), args(args), body(body) {}
+
 	atom vector_to_atom(std::vector<atom> &a, int start) {
 		atom r = nil;
 		int i;

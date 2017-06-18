@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.14";
+	const char VERSION[] = "0.14.1";
 
 	enum type {
 		T_NIL,
@@ -87,7 +87,7 @@ namespace arc {
 
 	struct cons {
 		struct atom car, cdr;
-		cons(atom car, atom cdr) : car(car), cdr(cdr) {}
+		cons(atom car, atom cdr);
 	};
 
 	typedef std::unordered_map<atom, atom> table;
@@ -96,14 +96,14 @@ namespace arc {
 	struct env {
 		std::shared_ptr<struct env> parent;
 		std::shared_ptr<env_table> table;
-		env(std::shared_ptr<struct env> parent) : parent(parent), table(std::make_shared<env_table>()) {}
+		env(std::shared_ptr<struct env> parent);
 	};
 
 	struct closure {
 		std::shared_ptr<struct env> env;
 		atom args;
 		atom body;
-		closure(std::shared_ptr<struct env> env, atom args, atom body) : env(env), args(args), body(body) {}
+		closure(std::shared_ptr<struct env> env, atom args, atom body);
 	};
 
 	/* forward declarations */
