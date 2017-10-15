@@ -554,19 +554,26 @@ namespace arc {
 		int ch;
 		size_t len = 0;
 		printf("%s", prompt);
-		str = (char *)malloc(sizeof(char)* size); /* size is start size */
+		str = (char *) malloc(sizeof(char)* size); /* size is start size */
 		if (!str) return NULL;
 		while (EOF != (ch = fgetc(fp)) && ch != '\n') {
 			str[len++] = ch;
 			if (len == size) {
-				str = (char *)realloc(str, sizeof(char)*(size *= 2));
-				if (!str) return NULL;
+				char *p = (char *) realloc(str, sizeof(char)*(size *= 2));
+				if (!p) {
+					free(str);
+					return NULL;
+				}
+				str = p;
 			}
 		}
-		if (ch == EOF && len == 0) return NULL;
+		if (ch == EOF && len == 0) {
+			free(str);
+			return NULL;
+		}
 		str[len++] = '\0';
 
-		return (char *)realloc(str, sizeof(char)*len);
+		return (char *) realloc(str, sizeof(char)*len);
 	}
 
 	error env_get(std::shared_ptr<struct env> &env, std::string *symbol, atom *result)
