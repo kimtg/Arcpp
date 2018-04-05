@@ -702,6 +702,34 @@ namespace arc {
 		}
 	}
 
+	error env_bind(std::shared_ptr<struct env> env, atom arg_names, std::vector<atom> &vargs) {
+		size_t i = 0;
+		while (!no(arg_names)) {
+			if (arg_names.type == T_SYM) {
+				env_assign(env, arg_names.simple.symbol, vector_to_atom(vargs, i));
+				i = vargs.size();
+				break;
+			}
+			atom arg_name = car(arg_names);
+			atom val;
+			int val_unspecified = 0;
+			if (i < vargs.size()) {
+				val = vargs[i];
+			}
+			else {
+				val_unspecified = 1;
+			}
+			error err = destructuring_bind(arg_name, val, val_unspecified, env);
+			if (err) {
+				return err;
+			}
+			arg_names = cdr(arg_names);
+			i++;
+		}
+		if (i < vargs.size())
+			return ERROR_ARGS;
+	}
+
 	error apply(atom fn, std::vector<atom> &vargs, atom *result)
 	{
 		if (fn.type == T_BUILTIN)
@@ -713,31 +741,7 @@ namespace arc {
 			atom body = cls.body;
 
 			/* Bind the arguments */
-			size_t i = 0;
-			while (!no(arg_names)) {
-				if (arg_names.type == T_SYM) {
-					env_assign(env, arg_names.simple.symbol, vector_to_atom(vargs, i));
-					i = vargs.size();
-					break;
-				}
-				atom arg_name = car(arg_names);
-				atom val;
-				int val_unspecified = 0;
-				if (i < vargs.size()) {
-					val = vargs[i];
-				}
-				else {
-					val_unspecified = 1;
-				}
-				error err = destructuring_bind(arg_name, val, val_unspecified, env);
-				if (err) {
-					return err;
-				}
-				arg_names = cdr(arg_names);
-				i++;
-			}
-			if (i < vargs.size())
-				return ERROR_ARGS;
+			env_bind(env, arg_names, vargs);
 
 			/* Evaluate the body */
 			*result = nil;
@@ -2141,31 +2145,7 @@ A symbol can be coerced to a string.
 				atom body = cls.body;
 
 				/* Bind the arguments */
-				size_t i = 0;
-				while (!no(arg_names)) {
-					if (arg_names.type == T_SYM) {
-						env_assign(env, arg_names.simple.symbol, vector_to_atom(vargs, i));
-						i = vargs.size();
-						break;
-					}
-					atom arg_name = car(arg_names);
-					atom val;
-					int val_unspecified = 0;
-					if (i < vargs.size()) {
-						val = vargs[i];
-					}
-					else {
-						val_unspecified = 1;
-					}
-					error err = destructuring_bind(arg_name, val, val_unspecified, env);
-					if (err) {
-						return err;
-					}
-					arg_names = cdr(arg_names);
-					i++;
-				}
-				if (i < vargs.size())
-					return ERROR_ARGS;
+				env_bind(env, arg_names, vargs);
 
 				/* Evaluate the body */
 				*result = nil;
