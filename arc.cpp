@@ -907,12 +907,11 @@ Addition. This operator also performs string and list concatenation.
 			*result = make_number(0);
 			return ERROR_OK;
 		}
+		if (vargs[0].type != T_NUM) return ERROR_TYPE;
 		if (vargs.size() == 1) { /* 1 argument */
-			if (vargs[0].type != T_NUM) return ERROR_TYPE;
 			*result = make_number(-vargs[0].simple.number);
 			return ERROR_OK;
 		}
-		if (vargs[0].type != T_NUM) return ERROR_TYPE;
 		double r = vargs[0].simple.number;
 		size_t i;
 		for (i = 1; i < vargs.size(); i++) {
@@ -941,12 +940,11 @@ Addition. This operator also performs string and list concatenation.
 			*result = make_number(1);
 			return ERROR_OK;
 		}
+		if (vargs[0].type != T_NUM) return ERROR_TYPE;
 		if (vargs.size() == 1) { /* 1 argument */
-			if (vargs[0].type != T_NUM) return ERROR_TYPE;
 			*result = make_number(1.0 / vargs[0].simple.number);
 			return ERROR_OK;
 		}
-		if (vargs[0].type != T_NUM) return ERROR_TYPE;
 		double r = vargs[0].simple.number;
 		size_t i;
 		for (i = 1; i < vargs.size(); i++) {
