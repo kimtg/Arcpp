@@ -728,6 +728,7 @@ namespace arc {
 		}
 		if (i < vargs.size())
 			return ERROR_ARGS;
+		return ERROR_OK;
 	}
 
 	error apply(atom fn, std::vector<atom> &vargs, atom *result)
