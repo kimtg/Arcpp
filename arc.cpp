@@ -1573,7 +1573,6 @@ Addition. This operator also performs string and list concatenation.
 		if (arg_len != 2) return ERROR_ARGS;
 		atom &proc = vargs[0];
 		atom &tbl = vargs[1];
-		if (proc.type != T_BUILTIN && proc.type != T_CLOSURE) return ERROR_TYPE;
 		if (tbl.type != T_TABLE) return ERROR_TYPE;
 		auto &table1 = tbl.as<table>();
 		std::vector<atom> v;
