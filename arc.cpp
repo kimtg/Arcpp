@@ -74,7 +74,7 @@ namespace arc {
 	}
 
 	cons::cons(atom car, atom cdr) : car(car), cdr(cdr) {}
-	env::env(std::shared_ptr<struct env> parent) : parent(parent), table(std::make_shared<env_table>()) {}
+	env::env(std::shared_ptr<struct env> parent) : parent(parent) {}
 	closure::closure(std::shared_ptr<struct env> env, atom args, atom body) : env(env), args(args), body(body) {}
 
 	atom vector_to_atom(std::vector<atom> &a, int start) {
@@ -579,13 +579,13 @@ namespace arc {
 	error env_get(std::shared_ptr<struct env> &env, std::string *symbol, atom *result)
 	{
 		while (1) {
-			auto tbl = env->table;
-			auto found = tbl->find(symbol);
-			if (found != tbl->end()) {
+			auto &tbl = env->table;
+			auto found = tbl.find(symbol);
+			if (found != tbl.end()) {
 				*result = found->second;
 				return ERROR_OK;
 			}
-			auto parent = env->parent;
+			auto &parent = env->parent;
 			if (parent == nullptr) {
 				/*printf("%s: ", symbol.p.symbol);*/
 				return ERROR_UNBOUND;
@@ -595,20 +595,20 @@ namespace arc {
 	}
 
 	error env_assign(std::shared_ptr<struct env> &env, std::string *symbol, atom value) {
-		auto tbl = env->table;
-		(*tbl)[symbol] = value;
+		auto &tbl = env->table;
+		tbl[symbol] = value;
 		return ERROR_OK;
 	}
 
 	error env_assign_eq(std::shared_ptr<struct env> &env, std::string *symbol, atom value) {
 		while (1) {
-			auto tbl = env->table;
-			auto found = tbl->find(symbol);
-			if (found != tbl->end()) {
+			auto &tbl = env->table;
+			auto found = tbl.find(symbol);
+			if (found != tbl.end()) {
 				found->second = value;
 				return ERROR_OK;
 			}
-			auto parent = env->parent;
+			auto &parent = env->parent;
 			if (parent == nullptr) {
 				return env_assign(env, symbol, value);
 			}
@@ -736,7 +736,7 @@ namespace arc {
 		if (fn.type == T_BUILTIN)
 			return fn.simple.bi(vargs, result);
 		else if (fn.type == T_CLOSURE) {
-			struct closure cls = fn.as<struct closure>();
+			struct closure &cls = fn.as<struct closure>();
 			std::shared_ptr<struct env> env = std::make_shared<struct env>(cls.env);
 			atom arg_names = cls.args;
 			atom body = cls.body;
@@ -2137,7 +2137,7 @@ A symbol can be coerced to a string.
 
 			/* tail call optimization of err = apply(fn, args, result); */
 			if (fn.type == T_CLOSURE) {
-				struct closure cls = fn.as<struct closure>();
+				struct closure &cls = fn.as<struct closure>();
 				env = std::make_shared<struct env>(cls.env);
 				atom arg_names = cls.args;
 				atom body = cls.body;

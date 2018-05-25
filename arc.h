@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.14.6";
+	const char VERSION[] = "0.14.7";
 
 	enum type {
 		T_NIL,
@@ -95,7 +95,7 @@ namespace arc {
 
 	struct env {
 		std::shared_ptr<struct env> parent;
-		std::shared_ptr<env_table> table;
+		env_table table;
 		env(std::shared_ptr<struct env> parent);
 	};
 
