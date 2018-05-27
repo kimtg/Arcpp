@@ -702,7 +702,7 @@ namespace arc {
 		}
 	}
 
-	error env_bind(std::shared_ptr<struct env> env, atom arg_names, std::vector<atom> &vargs) {
+	error env_bind(std::shared_ptr<struct env> &env, atom arg_names, std::vector<atom> &vargs) {
 		size_t i = 0;
 		while (!no(arg_names)) {
 			if (arg_names.type == T_SYM) {
