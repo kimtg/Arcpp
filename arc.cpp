@@ -303,6 +303,7 @@ namespace arc {
 			*pt = 0;
 			buf = (char *)realloc(buf, pt - buf + 1);
 			*result = make_string(buf);
+			free(buf);
 			return ERROR_OK;
 		}
 		else if (start[0] == '#') { /* #\char */
