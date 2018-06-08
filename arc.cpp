@@ -2149,14 +2149,14 @@ A symbol can be coerced to a string.
 				env_bind(env, arg_names, vargs);
 
 				/* Evaluate the body */
-				*result = nil;
 				while (!no(body)) {
 					if (no(cdr(body))) {
 						/* tail call */
 						expr = car(body);
 						goto start_eval;
 					}
-					error err = eval_expr(car(body), env, result);
+					atom r;
+					error err = eval_expr(car(body), env, &r);
 					if (err) {
 						return err;
 					}
