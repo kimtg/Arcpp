@@ -2105,13 +2105,15 @@ A symbol can be coerced to a string.
 						}
 						atom e = cdr(args);
 						while (!no(e)) {
-							err = eval_expr(car(e), env, result);
+							atom r;
+							err = eval_expr(car(e), env, &r);
 							if (err) {
 								return err;
 							}
 							e = cdr(e);
 						}
 					}
+					*result = nil;
 					return ERROR_OK;
 				}
 			}
