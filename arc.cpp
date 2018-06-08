@@ -2149,12 +2149,17 @@ A symbol can be coerced to a string.
 				/* Evaluate the body */
 				*result = nil;
 				while (!no(body)) {
+					if (no(cdr(body))) {
+						/* tail call */
+						expr = car(body);
+						goto start_eval;
+					}
 					error err = eval_expr(car(body), env, result);
-					if (err)
+					if (err) {
 						return err;
+					}
 					body = cdr(body);
 				}
-
 				return ERROR_OK;
 			}
 			else {
