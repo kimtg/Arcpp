@@ -5,7 +5,7 @@ namespace arc {
 	const atom nil;
 	std::shared_ptr<struct env> global_env = std::make_shared<struct env>(nullptr); /* the global environment */
 	/* symbols for faster execution */
-	atom sym_t, sym_quote, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_while, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char;
+	atom sym_t, sym_quote, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char;
 	atom cur_expr;
 	atom thrown;
 	std::unordered_map<std::string, std::string *> id_of_sym;
@@ -2093,29 +2093,6 @@ A symbol can be coerced to a string.
 						return err;
 					}
 				}
-				else if (sym_is(op, sym_while)) {
-					atom pred;
-					if (no(args)) {
-						return ERROR_ARGS;
-					}
-					pred = car(args);
-					while (err = eval_expr(pred, env, result), !no(*result)) {
-						if (err) {
-							return err;
-						}
-						atom e = cdr(args);
-						while (!no(e)) {
-							atom r;
-							err = eval_expr(car(e), env, &r);
-							if (err) {
-								return err;
-							}
-							e = cdr(e);
-						}
-					}
-					*result = nil;
-					return ERROR_OK;
-				}
 			}
 
 			/* Evaluate operator */
@@ -2185,7 +2162,6 @@ A symbol can be coerced to a string.
 		sym_if = make_sym("if");
 		sym_mac = make_sym("mac");
 		sym_apply = make_sym("apply");
-		sym_while = make_sym("while");
 		sym_cons = make_sym("cons");
 		sym_sym = make_sym("sym");
 		sym_string = make_sym("string");

@@ -111,6 +111,19 @@ function 'f' to them."
        ,@body)
     `(let ,names (uniq) ,@body)))
 
+(mac while (test . body)
+  "Executes body repeatedly while test is true. The test is evaluated before each execution of body."
+  (let f (uniq)
+    `(let ,f nil
+      (assign ,f (fn ()
+              (when ,test
+                ,@body
+                (,f))))
+      (,f))))
+
+(mac when (test . body)
+	 (list 'if test (cons 'do body)))
+
 (mac each (var expr . body)
      (w/uniq (seq i)
 	     `(let ,seq ,expr
@@ -214,9 +227,6 @@ the same elements (be *isomorphic*) without being identical."
 					  (list 'sref (car place) value (cadr place))))
 				  (list 'assign place value))))
 		    (pair args))))
-
-(mac when (test . body)
-	 (list 'if test (cons 'do body)))
 
 (mac unless (test . body)
   `(if (no ,test) (do ,@body)))
