@@ -26,7 +26,6 @@ namespace arc {
 	atom::atom() : type(T_NIL) {}
 
 	atom::atom(const atom & a) : type(a.type) {
-		if (this == &a) return;
 		if (is_ptr(a)) {
 			new (&p) std::shared_ptr<void>(a.p);
 		}
@@ -39,7 +38,6 @@ namespace arc {
 	}
 
 	atom::atom(const atom && a) : type(a.type) {
-		if (this == &a) return;
 		if (is_ptr(a)) {
 			new (&p) std::shared_ptr<void>(a.p);
 		}

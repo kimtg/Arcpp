@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.15";
+	const char VERSION[] = "0.15.1";
 
 	enum type {
 		T_NIL,
