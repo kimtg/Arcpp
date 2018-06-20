@@ -129,12 +129,11 @@ namespace arc {
 	atom make_table();
 	void repl();
 	atom make_cons(atom car_val, atom cdr_val);
-	/* end forward */
-
 	atom & car(atom & a);
 	atom & cdr(atom & a);
 	bool no(atom & a);
 	bool sym_is(const atom & a, const atom & b);
+	/* end forward */
 }
 
 namespace std {
