@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.15.1";
+	const char VERSION[] = "0.16";
 
 	enum type {
 		T_NIL,
@@ -57,19 +57,8 @@ namespace arc {
 	typedef error(*builtin)(std::vector<atom> &vargs, atom *result);
 
 	struct atom {
-		enum type type;
-
-		union { // primitive
-			union {
-				double number;
-				std::string *symbol;
-				builtin bi;
-				FILE *fp;
-				char ch;
-				jmp_buf *jb;
-			} simple;
-			std::shared_ptr<void> p; // reference-counted pointer
-		};
+		enum type type = T_NIL;
+		std::shared_ptr<void> p; // reference-counted pointer
 
 		template <typename T>
 		T &as() {
@@ -77,12 +66,6 @@ namespace arc {
 		}
 
 		friend bool operator ==(const atom a, const atom b);
-		atom & operator =(const atom & a);		
-
-		atom();
-		atom(const atom & a);
-		atom(const atom && a);
-		~atom();
 	};
 
 	struct cons {
@@ -158,12 +141,12 @@ namespace std {
 				}
 				return r;
 			case arc::T_SYM:
-				return hash<std::string *>()(a.simple.symbol);
+				return hash<std::string *>()(a.as<string *>());
 			case arc::T_STRING: {
 				return hash<string>()(a.as<string>());
 			}
 			case arc::T_NUM: {
-				return hash<double>()(a.simple.number);
+				return hash<double>()(a.as<double>());
 			}
 			case arc::T_CLOSURE:
 				return hash<arc::atom>()(cdr(a));
