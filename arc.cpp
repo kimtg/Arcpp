@@ -32,19 +32,19 @@ namespace arc {
 	}
 
 	atom & car(atom & a) {
-		return std::static_pointer_cast<arc::cons>(a.p)->car;
+		return a.as<arc::cons>().car;
 	}
 
 	atom & cdr(atom & a) {
-		return std::static_pointer_cast<arc::cons>(a.p)->cdr;
+		return a.as<arc::cons>().cdr;
 	}
 
 	bool no(atom & a) {
 		return a.type == arc::T_NIL;
 	}
 
-	bool sym_is(const atom & a, const atom & b) {
-		return (*std::static_pointer_cast<std::string *>(a.p)) == (*std::static_pointer_cast<std::string *>(b.p));
+	bool sym_is(atom & a, atom & b) {
+		return a.as<std::string *>() == b.as<std::string *>();
 	}
 
 	bool operator ==(const atom a, const atom b) {
