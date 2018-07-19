@@ -35,8 +35,14 @@ int main(int argc, char **argv)
 	arc::error err;
 	for (i = 1; i < argc; i++) {
 		err = arc::arc_load_file(argv[i]);
-		if (err) {
+		if (err == arc::ERROR_FILE) {
 			fprintf(stderr, "Cannot open file: %s\n", argv[i]);
+			break;
+		}
+		else if (err) {
+			fprintf(stderr, "In file %s:\n", argv[i]);
+			print_error(err);
+			break;
 		}
 	}
 	return 0;
