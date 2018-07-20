@@ -1,4 +1,5 @@
 #include "arc.h"
+#include <ctype.h>
 
 namespace arc {
 	const char *error_string[] = { "", "Syntax error", "Symbol not bound", "Wrong number of arguments", "Wrong type", "File error", "" };
@@ -1883,10 +1884,6 @@ A symbol can be coerced to a string.
 		atom expr;
 		while (*p) {
 			err = read_expr(p, &p, &expr);
-			if (err == ERROR_FILE) { // EOF
-				err = ERROR_OK;
-				break;
-			}
 			if (err) {
 				break;
 			}
@@ -1899,6 +1896,7 @@ A symbol can be coerced to a string.
 			//	print_expr(result);
 			//	putchar(' ');
 			//}
+			while (*p && isspace(*p)) p++;
 		}
 		//puts("");
 		return err;
