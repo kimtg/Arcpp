@@ -1601,7 +1601,13 @@ A symbol can be coerced to a string.
 				std::string s;
 				atom p;
 				for (p = obj; !no(p); p = cdr(p)) {
-					s += car(p).as<char>();
+					atom x;
+					std::vector<atom> v; /* (car(p) string) */
+					v.push_back(car(p));
+					v.push_back(sym_string);
+					error err = builtin_coerce(v, &x);
+					if (err) return err;
+					s += x.as<std::string>();
 				}
 				*result = make_string(s);
 			}
