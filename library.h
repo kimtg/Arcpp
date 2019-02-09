@@ -1018,4 +1018,9 @@ non-nil."
             (apply map (cons proc
                              (map1 cdr arg-lists))))
       nil))
+
+(def intersperse (x ys)
+"Inserts 'x' between the elements of 'ys'."
+  (and ys (cons (car ys)
+                (mappend [list x _] (cdr ys)))))
 )EOF"
