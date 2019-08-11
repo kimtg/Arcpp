@@ -511,7 +511,7 @@ namespace arc {
 		return (char *) realloc(str, sizeof(char)*len);
 	}
 
-	error env_get(std::shared_ptr<struct env> &env, std::string *symbol, atom *result)
+	error env_get(std::shared_ptr<struct env> env, std::string *symbol, atom *result)
 	{
 		while (1) {
 			auto &tbl = env->table;
@@ -535,7 +535,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error env_assign_eq(std::shared_ptr<struct env> &env, std::string *symbol, atom value) {
+	error env_assign_eq(std::shared_ptr<struct env> env, std::string *symbol, atom value) {
 		while (1) {
 			auto &tbl = env->table;
 			auto found = tbl.find(symbol);
