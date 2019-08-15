@@ -1553,7 +1553,7 @@ A symbol can be coerced to a string.
 		case T_CHAR:
 			if (is(type, sym_int) || is(type, sym_num)) *result = make_number(obj.as<char>());
 			else if (is(type, sym_string)) {
-				char *buf = (char *) malloc(2);
+				char buf[2];
 				buf[0] = obj.as<char>();
 				buf[1] = '\0';
 				*result = make_string(buf);
