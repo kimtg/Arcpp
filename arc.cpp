@@ -1800,7 +1800,6 @@ A symbol can be coerced to a string.
 
 		fread(buf, 1, len, fp);
 		buf[len] = 0;
-		fclose(fp);
 
 		return buf;
 	}
@@ -1812,7 +1811,9 @@ A symbol can be coerced to a string.
 			/* printf("Reading %s failed.\n", path); */
 			return NULL;
 		}
-		return slurp_fp(fp);
+		char *r = slurp_fp(fp);
+		fclose(fp);
+		return r;
 	}
 
 	/* compile-time macro */
