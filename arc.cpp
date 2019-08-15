@@ -48,7 +48,7 @@ namespace arc {
 		return a.as<std::string *>() == b.as<std::string *>();
 	}
 
-	bool operator ==(const atom a, const atom b) {
+	bool operator ==(const atom &a, const atom &b) {
 		return iso(a, b);
 	}
 

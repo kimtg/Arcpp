@@ -31,7 +31,7 @@
 #endif
 
 namespace arc {
-	const char VERSION[] = "0.16.8";
+	const char VERSION[] = "0.16.9";
 
 	enum type {
 		T_NIL,
@@ -65,7 +65,7 @@ namespace arc {
 			return *std::static_pointer_cast<T>(p);
 		}
 
-		friend bool operator ==(const atom a, const atom b);
+		friend bool operator ==(const atom &a, const atom &b);
 	};
 
 	struct cons {
