@@ -1680,7 +1680,8 @@ A symbol can be coerced to a string.
 			*result = thrown;
 			return ERROR_OK;
 		}
-		return apply(a, vargs, result);
+		std::vector<atom> args{ make_continuation(&jb) };
+		return apply(a, args, result);
 	}
 	
 	/* end builtin */
