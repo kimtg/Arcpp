@@ -1013,7 +1013,7 @@ non-nil."
        ,gacc)))
 
 (def map (proc . arg-lists)
-  (if (and (car arg-lists) (all idfn (map1 car arg-lists)))
+  (if (car arg-lists)
       (cons (apply proc (map1 car arg-lists))
             (apply map (cons proc
                              (map1 cdr arg-lists))))
