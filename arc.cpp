@@ -196,7 +196,7 @@ namespace arc {
 
 	error parse_simple(const char *start, const char *end, atom *result)
 	{
-		char *buf, *p;
+		char *p;
 
 		/* Is it a number? */
 		double val = strtod(start, &p);
@@ -241,10 +241,10 @@ namespace arc {
 			return ERROR_OK;
 		}
 		else if (start[0] == '#') { /* #\char */
-			buf = (char *)malloc(end - start + 1);
+			char *buf = (char *)malloc(end - start + 1);
 			memcpy(buf, start, end - start);
 			buf[end - start] = 0;
-			size_t length = strlen(buf);
+			size_t length = end - start;
 			if (length == 3 && buf[1] == '\\') { /* plain character e.g. #\a */
 				*result = make_char(buf[2]);
 				free(buf);
@@ -273,7 +273,7 @@ namespace arc {
 		}
 
 		/* NIL or symbol */
-		buf = (char *)malloc(end - start + 1);
+		char *buf = (char *)malloc(end - start + 1);
 		memcpy(buf, start, end - start);
 		buf[end - start] = 0;
 
@@ -292,9 +292,15 @@ namespace arc {
 					}
 					error err;
 					err = parse_simple(buf, buf + i, &a1);
-					if (err) return ERROR_SYNTAX;
+					if (err) {
+						free(buf);
+						return ERROR_SYNTAX;
+					}
 					err = parse_simple(buf + i + 1, buf + length, &a2);
-					if (err) return ERROR_SYNTAX;
+					if (err) {
+						free(buf);
+						return ERROR_SYNTAX;
+					}
 					free(buf);
 					*result = make_cons(a1, make_cons(a2, nil));
 					return ERROR_OK;
@@ -306,9 +312,15 @@ namespace arc {
 					}
 					error err;
 					err = parse_simple(buf, buf + i, &a1);
-					if (err) return ERROR_SYNTAX;
+					if (err) {
+						free(buf);
+						return ERROR_SYNTAX;
+					}
 					err = parse_simple(buf + i + 1, buf + length, &a2);
-					if (err) return ERROR_SYNTAX;
+					if (err) {
+						free(buf);
+						return ERROR_SYNTAX;
+					}
 					free(buf);
 					*result = make_cons(a1, make_cons(make_cons(sym_quote, make_cons(a2, nil)), nil));
 					return ERROR_OK;
@@ -320,9 +332,15 @@ namespace arc {
 					}
 					error err;
 					err = parse_simple(buf, buf + i, &a1);
-					if (err) return ERROR_SYNTAX;
+					if (err) {
+						free(buf);
+						return ERROR_SYNTAX;
+					}
 					err = parse_simple(buf + i + 1, buf + length, &a2);
-					if (err) return ERROR_SYNTAX;
+					if (err) {
+						free(buf);
+						return ERROR_SYNTAX;
+					}
 					free(buf);
 					*result = make_cons(make_sym("compose"), make_cons(a1, make_cons(a2, nil)));
 					return ERROR_OK;
@@ -331,6 +349,7 @@ namespace arc {
 			if (length >= 2 && buf[0] == '~') { /* ~a => (complement a) */
 				atom a1;
 				error err = parse_simple(buf + 1, buf + length, &a1);
+				free(buf);
 				if (err) return ERROR_SYNTAX;
 				*result = make_cons(make_sym("complement"), make_cons(a1, nil));
 				return ERROR_OK;
@@ -339,7 +358,6 @@ namespace arc {
 		}
 
 		free(buf);
-
 		return ERROR_OK;
 	}
 
