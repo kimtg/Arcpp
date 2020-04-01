@@ -6,7 +6,7 @@ namespace arc {
 	const atom nil;
 	std::shared_ptr<struct env> global_env = std::make_shared<struct env>(nullptr); /* the global environment */
 	/* symbols for faster execution */
-	atom sym_t, sym_quote, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char;
+	atom sym_t, sym_quote, sym_quasiquote, sym_unquote, sym_unquote_splicing, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char;
 	atom cur_expr;
 	atom thrown;
 	std::unordered_map<std::string, std::string *> id_of_sym;
@@ -477,16 +477,16 @@ namespace arc {
 		else if (token[0] == ']')
 			return ERROR_SYNTAX;
 		else if (token[0] == '\'') {
-			*result = make_cons(make_sym("quote"), make_cons(nil, nil));
+			*result = make_cons(sym_quote, make_cons(nil, nil));
 			return read_expr(*end, end, &car(cdr(*result)));
 		}
 		else if (token[0] == '`') {
-			*result = make_cons(make_sym("quasiquote"), make_cons(nil, nil));
+			*result = make_cons(sym_quasiquote, make_cons(nil, nil));
 			return read_expr(*end, end, &car(cdr(*result)));
 		}
 		else if (token[0] == ',') {
-			*result = make_cons(make_sym(
-				token[1] == '@' ? "unquote-splicing" : "unquote"),
+			*result = make_cons(
+				token[1] == '@' ? sym_unquote_splicing : sym_unquote,
 				make_cons(nil, nil));
 			return read_expr(*end, end, &car(cdr(*result)));
 		}
@@ -1711,6 +1711,24 @@ A symbol can be coerced to a string.
 			s = "nil";
 			break;
 		case T_CONS:
+			if (listp(a) && len(a) == 2) {
+				if (is(car(a), sym_quote)) {
+					s = "'" + to_string(car(cdr(a)), write);
+					break;
+				}
+				else if (is(car(a), sym_quasiquote)) {
+					s = "`" + to_string(car(cdr(a)), write);
+					break;
+				}
+				else if (is(car(a), sym_unquote)) {
+					s = "," + to_string(car(cdr(a)), write);
+					break;
+				}
+				else if (is(car(a), sym_unquote_splicing)) {
+					s = ",@" + to_string(car(cdr(a)), write);
+					break;
+				}
+			}
 			s = "(" + to_string(car(a), write);
 			a = cdr(a);
 			while (!no(a)) {
@@ -2111,6 +2129,9 @@ A symbol can be coerced to a string.
 		/* Set up the initial environment */
 		sym_t = make_sym("t");
 		sym_quote = make_sym("quote");
+		sym_quasiquote = make_sym("quasiquote");
+		sym_unquote = make_sym("unquote");
+		sym_unquote_splicing = make_sym("unquote-splicing");
 		sym_assign = make_sym("assign");
 		sym_fn = make_sym("fn");
 		sym_if = make_sym("if");
