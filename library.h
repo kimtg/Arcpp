@@ -63,9 +63,6 @@ For example, this is always true:
 (mac let (sym def . body)
 	`((fn (,sym) ,@body) ,def))
 
-(mac do body
-	`((fn () ,@body)))
-
 (mac rfn (name parms . body)
 "Like [[fn]] but permits the created function to call itself recursively as the given 'name'."
   `(let ,name nil
