@@ -6,7 +6,7 @@ namespace arc {
 	const atom nil;
 	std::shared_ptr<struct env> global_env = std::make_shared<struct env>(nullptr); /* the global environment */
 	/* symbols for faster execution */
-	atom sym_t, sym_quote, sym_quasiquote, sym_unquote, sym_unquote_splicing, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char;
+	atom sym_t, sym_quote, sym_quasiquote, sym_unquote, sym_unquote_splicing, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char, sym_do;
 	atom cur_expr;
 	atom thrown;
 	std::unordered_map<std::string, std::string *> id_of_sym;
@@ -2042,6 +2042,23 @@ A symbol can be coerced to a string.
 					err = make_closure(env, car(args), cdr(args), result);
 					return err;
 				}
+				else if (sym_is(op, sym_do)) {
+					/* Evaluate the body */
+					*result = nil;
+					while (!no(args)) {
+						if (no(cdr(args))) {
+							/* tail call */
+							expr = car(args);
+							goto start_eval;
+						}
+						error err = eval_expr(car(args), env, result);
+						if (err) {
+							return err;
+						}
+						args = cdr(args);
+					}
+					return ERROR_OK;
+				}
 				else if (sym_is(op, sym_mac)) { /* (mac name (arg ...) body) */
 					atom name, macro;
 
@@ -2146,6 +2163,7 @@ A symbol can be coerced to a string.
 		sym_table = make_sym("table");
 		sym_int = make_sym("int");
 		sym_char = make_sym("char");
+		sym_do = make_sym("do");
 
 		env_assign(global_env, sym_t.as<std::string *>(), sym_t);
 		env_assign(global_env, make_sym("nil").as<std::string *>(), nil);
