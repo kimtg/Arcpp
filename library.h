@@ -845,9 +845,10 @@ negative to count backwards from the end."
 
 (def range (start end)
 "Returns the list of integers from 'start' to 'end' (both inclusive)."
-  (if (> start end)
-    nil
-    (cons start (range (inc start) end))))
+  (with (r nil i end)
+    (while (>= i start)
+      (= r (cons i r)) (-- i))
+    r))
 
 (mac n-of (n expr)
   "Runs 'expr' 'n' times, and returns a list of the results."
