@@ -18,6 +18,7 @@ mingw32-make mingw
 ```
 
 For Visual C++, use .sln file.
+For Code::Blocks, use .cbp file.
 
 ## Run
 ```
