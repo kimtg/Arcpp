@@ -1924,6 +1924,15 @@ A symbol can be coerced to a string.
 		const char *p = text;
 		atom expr;
 		while (*p) {
+			if (isspace(*p)) {
+				p++;
+				continue;
+			}
+			/* comment */
+			if (*p == ';') {
+				p += strcspn(p, "\n");
+				continue;
+			}
 			err = read_expr(p, &p, &expr);
 			if (err) {
 				break;
@@ -1936,8 +1945,7 @@ A symbol can be coerced to a string.
 			//else {
 			//	print_expr(result);
 			//	putchar(' ');
-			//}
-			while (*p && isspace(*p)) p++;
+			//}			
 		}
 		//puts("");
 		return err;
