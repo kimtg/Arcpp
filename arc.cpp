@@ -538,12 +538,11 @@ namespace arc {
 				*result = found->second;
 				return ERROR_OK;
 			}
-			auto &parent = env->parent;
-			if (parent == nullptr) {
+			env = env->parent;
+			if (env == nullptr) {
 				/*printf("%s: ", symbol.p.symbol);*/
 				return ERROR_UNBOUND;
 			}
-			env = parent;
 		}
 	}
 
@@ -1991,26 +1990,23 @@ A symbol can be coerced to a string.
 			if (op.type == T_SYM) {
 				/* Handle special forms */
 				if (sym_is(op, sym_if)) {
-					atom *p = &args;
-					while (!no(*p)) {
-						atom cond;
-						if (no(cdr(*p))) { /* else */
+					while (!no(args)) {
+						if (no(cdr(args))) { /* else */
 							/* tail call optimization of else part */
-							expr = car(*p);
+							expr = car(args);
 							goto start_eval;
 						}
-						err = eval_expr(car(*p), env, &cond);
+						err = eval_expr(car(args), env, result);
 						if (err) {
 							return err;
 						}
-						if (!no(cond)) { /* then */
-							/* tail call optimization of err = eval_expr(car(cdr(*p)), env, result); */
-							expr = car(cdr(*p));
+						if (!no(*result)) { /* then */
+							/* tail call optimization of err = eval_expr(car(cdr(args)), env, result); */
+							expr = car(cdr(args));
 							goto start_eval;
 						}
-						p = &cdr(cdr(*p));
+						args = cdr(cdr(args));
 					}
-					*result = nil;
 					return ERROR_OK;
 				}
 				else if (sym_is(op, sym_assign)) {
@@ -2021,14 +2017,11 @@ A symbol can be coerced to a string.
 
 					sym = car(args);
 					if (sym.type == T_SYM) {
-						atom val;
-						err = eval_expr(car(cdr(args)), env, &val);
+						err = eval_expr(car(cdr(args)), env, result);
 						if (err) {
 							return err;
 						}
-
-						*result = val;
-						err = env_assign_eq(env, sym.as<std::string *>(), val);
+						err = env_assign_eq(env, sym.as<std::string *>(), *result);
 						return err;
 					}
 					else {
