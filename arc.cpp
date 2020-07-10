@@ -1823,7 +1823,7 @@ A symbol can be coerced to a string.
 
 	char *slurp_fp(FILE *fp) {
 		char *buf;
-		long len;
+		size_t len;
 
 		fseek(fp, 0, SEEK_END);
 		len = ftell(fp);
@@ -1834,7 +1834,7 @@ A symbol can be coerced to a string.
 		if (!buf)
 			return NULL;
 
-		fread(buf, 1, len, fp);
+    	if (fread(buf, 1, len, fp) != len) return NULL;
 		buf[len] = 0;
 
 		return buf;
