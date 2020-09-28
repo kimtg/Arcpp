@@ -1700,7 +1700,44 @@ A symbol can be coerced to a string.
 		std::vector<atom> args{ make_continuation(&jb) };
 		return apply(a, args, result);
 	}
+
+	error builtin_mvfile(std::vector<atom>& vargs, atom* result) {
+		if (vargs.size() != 2) return ERROR_ARGS;
+		atom a = vargs[0];
+		atom b = vargs[1];
+		if (a.type != T_STRING || b.type != T_STRING) return ERROR_TYPE;
+		*result = nil;
+		int r = std::rename(a.as<std::string>().c_str(), b.as<std::string>().c_str());
+		if (r != 0) {
+			return ERROR_FILE;
+		}
+		return ERROR_OK;
+	}
 	
+	error builtin_rmfile(std::vector<atom>& vargs, atom* result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom a = vargs[0];
+		if (a.type != T_STRING) return ERROR_TYPE;
+		*result = nil;
+		int r = std::remove(a.as<std::string>().c_str());
+		if (r != 0) {
+			return ERROR_FILE;
+		}
+		return ERROR_OK;
+	}
+
+	error builtin_dir(std::vector<atom>& vargs, atom* result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom a = vargs[0];
+		if (a.type != T_STRING) return ERROR_TYPE;
+		if (a.as<std::string>().length() == 0) return ERROR_FILE;
+		*result = nil;
+		for (auto & p : std::filesystem::directory_iterator(a.as<std::string>().c_str())) {
+			*result = make_cons(make_string(p.path().string()), *result);
+		}
+		return ERROR_OK;
+	}
+
 	/* end builtin */
 
 	std::string to_string(atom a, int write) {
@@ -2223,6 +2260,9 @@ A symbol can be coerced to a string.
 		env_assign(global_env, make_sym("err").as<std::string *>(), make_builtin(builtin_err));
 		env_assign(global_env, make_sym("len").as<std::string *>(), make_builtin(builtin_len));
 		env_assign(global_env, make_sym("ccc").as<std::string *>(), make_builtin(builtin_ccc));
+		env_assign(global_env, make_sym("mvfile").as<std::string*>(), make_builtin(builtin_mvfile));
+		env_assign(global_env, make_sym("rmfile").as<std::string*>(), make_builtin(builtin_rmfile));
+		env_assign(global_env, make_sym("dir").as<std::string*>(), make_builtin(builtin_dir));
 
 		const char *stdlib =
 			#include "library.h"

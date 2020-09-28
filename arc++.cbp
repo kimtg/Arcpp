@@ -43,6 +43,9 @@
 				</Linker>
 			</Target>
 		</Build>
+		<Compiler>
+			<Add option="-std=c++17" />
+		</Compiler>
 		<Unit filename="README.md" />
 		<Unit filename="arc.cpp" />
 		<Unit filename="arc.h" />

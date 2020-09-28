@@ -165,3 +165,6 @@ TAGS
 *.depend
 bin/
 obj/
+
+.vs/
+
