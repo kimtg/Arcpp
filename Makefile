@@ -1,5 +1,5 @@
 BIN=arc++
-CXXFLAGS=-Wall -O3 -c -std=c++11
+CXXFLAGS=-Wall -O3 -c -std=c++17
 LDFLAGS=-s -lm
 
 $(BIN): main.o arc.o
@@ -9,7 +9,7 @@ readline: CXXFLAGS+=-DREADLINE
 readline: LDFLAGS+=-lreadline
 readline: $(BIN)
 
-mingw: CXXFLAGS=-Wall -O3 -c -std=gnu++11
+mingw: CXXFLAGS=-Wall -O3 -c -std=gnu++17
 mingw: main.o arc.o ico.o
 	$(CXX) -o $(BIN) main.o arc.o ico.o $(LDFLAGS)
 
