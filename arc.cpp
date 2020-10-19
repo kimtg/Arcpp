@@ -1854,7 +1854,7 @@ A symbol can be coerced to a string.
 	atom make_table() {
 		atom a;
 		a.type = T_TABLE;
-		a.p = std::shared_ptr<void>(std::make_shared<table>());
+		a.p = std::make_shared<table>();
 		return a;
 	}
 
