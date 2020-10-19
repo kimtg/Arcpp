@@ -32,7 +32,7 @@
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.19";
+	constexpr auto VERSION = "0.19.1";
 
 	enum type {
 		T_NIL,
@@ -84,10 +84,10 @@ namespace arc {
 	};
 
 	struct closure {
-		std::shared_ptr<struct env> env;
+		std::shared_ptr<struct env> parent_env;
 		atom args;
 		atom body;
-		closure(std::shared_ptr<struct env> env, atom args, atom body);
+		closure(const std::shared_ptr<struct env> &env, atom args, atom body);
 	};
 
 	/* forward declarations */
