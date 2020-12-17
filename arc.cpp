@@ -130,6 +130,13 @@ namespace arc {
 		return a;
 	}
 
+	atom make_input_pipe(FILE* fp) {
+		atom a;
+		a.type = T_INPUT_PIPE;
+		a.p = std::make_shared<FILE*>(fp);
+		return a;
+	}
+
 	atom make_output(FILE *fp) {
 		atom a;
 		a.type = T_OUTPUT;
@@ -1004,6 +1011,7 @@ Addition. This operator also performs string and list concatenation.
 			case T_TABLE:
 				return a.as<table>() == b.as<table>();
 			case T_INPUT:
+			case T_INPUT_PIPE:
 			case T_OUTPUT:
 				return a.as<FILE *>() == b.as<FILE *>();
 			case T_CONTINUATION:
@@ -1091,6 +1099,9 @@ Addition. This operator also performs string and list concatenation.
 		case T_MACRO: *result = sym_mac; break;
 		case T_TABLE: *result = sym_table; break;
 		case T_CHAR: *result = sym_char; break;
+		case T_INPUT: *result = make_sym("input"); break;
+		case T_INPUT_PIPE: *result = make_sym("input-pipe"); break;
+		case T_OUTPUT: *result = make_sym("output"); break;
 		default: *result = nil; break; /* impossible */
 		}
 		return ERROR_OK;
@@ -1181,6 +1192,7 @@ Addition. This operator also performs string and list concatenation.
 			str = readline("");
 		}
 		else if (l == 1) {
+			if (vargs[0].type != T_INPUT && vargs[0].type != T_INPUT_PIPE) return ERROR_TYPE;
 			str = readline_fp("", vargs[0].as<FILE *>());
 		}
 		else {
@@ -1242,7 +1254,7 @@ Addition. This operator also performs string and list concatenation.
 				const char *buf = s;
 				err = read_expr(buf, &buf, result);
 			}
-			else if (src.type == T_INPUT) {
+			else if (src.type == T_INPUT || src.type == T_INPUT_PIPE) {
 				err = read_fp(src.as<FILE *>(), result);
 			}
 			else {
@@ -1419,11 +1431,16 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
+	/* close port ... */
 	error builtin_close(std::vector<atom> &vargs, atom *result) {
-		if (vargs.size() == 1) {
-			atom a = vargs[0];
-			if (a.type != T_INPUT && a.type != T_OUTPUT) return ERROR_TYPE;
-			fclose(a.as<FILE *>());
+		if (vargs.size() >= 1) {
+			for (atom a : vargs) {
+				if (a.type != T_INPUT && a.type != T_INPUT_PIPE && a.type != T_OUTPUT) return ERROR_TYPE;
+				if (a.type == T_INPUT_PIPE)
+					pclose(a.as<FILE*>());
+				else
+					fclose(a.as<FILE*>());
+			}
 			*result = nil;
 			return ERROR_OK;
 		}
@@ -1738,6 +1755,19 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 
+	/* pipe-from command
+	 * Executes command in the underlying OS. Then opens an input-port to the results.
+	 */
+	error builtin_pipe_from(std::vector<atom>& vargs, atom* result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom a = vargs[0];
+		if (a.type != T_STRING) return ERROR_TYPE;
+		FILE* fp = popen(vargs[0].as<std::string>().c_str(), "r");
+		if (fp == nullptr) return ERROR_FILE;
+		*result = make_input_pipe(fp);
+		return ERROR_OK;
+	}
+
 	/* end builtin */
 
 	std::string to_string(atom a, int write) {
@@ -1812,6 +1842,9 @@ A symbol can be coerced to a string.
 			break;
 		case T_INPUT:
 			s = "#<input>";
+			break;
+		case T_INPUT_PIPE:
+			s = "#<input-pipe>";
 			break;
 		case T_OUTPUT:
 			s = "#<output>";
@@ -2263,6 +2296,7 @@ A symbol can be coerced to a string.
 		env_assign(global_env, make_sym("mvfile").as<std::string*>(), make_builtin(builtin_mvfile));
 		env_assign(global_env, make_sym("rmfile").as<std::string*>(), make_builtin(builtin_rmfile));
 		env_assign(global_env, make_sym("dir").as<std::string*>(), make_builtin(builtin_dir));
+		env_assign(global_env, make_sym("pipe-from").as<std::string*>(), make_builtin(builtin_pipe_from));
 
 		const char *stdlib =
 			#include "library.h"

@@ -1,5 +1,5 @@
 BIN=arc++
-CXXFLAGS=-Wall -O3 -c -std=c++17
+CXXFLAGS=-Wall -O3 -c -std=gnu++17
 LDFLAGS=-s -lm
 
 $(BIN): main.o arc.o

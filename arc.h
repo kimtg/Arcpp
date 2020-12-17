@@ -29,10 +29,12 @@
 
 #ifdef _MSC_VER
 #define strdup _strdup
+#define popen _popen
+#define pclose _pclose
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.19.1";
+	constexpr auto VERSION = "0.20";
 
 	enum type {
 		T_NIL,
@@ -44,6 +46,7 @@ namespace arc {
 		T_MACRO,
 		T_STRING,
 		T_INPUT,
+		T_INPUT_PIPE,
 		T_OUTPUT,
 		T_TABLE,
 		T_CHAR,
@@ -155,6 +158,7 @@ namespace std {
 				return hash<arc::atom>()(cdr(a));
 			case arc::T_BUILTIN:
 			case arc::T_INPUT:
+			case arc::T_INPUT_PIPE:
 			case arc::T_OUTPUT:
 				return hash<void *>()(a.p.get());
 			default:
