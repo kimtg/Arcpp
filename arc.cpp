@@ -1339,13 +1339,13 @@ Addition. This operator also performs string and list concatenation.
 			atom a = vargs[0];
 			switch (a.type) {
 			case T_STRING:
-				*result = make_number(round(atof(a.as<std::string>().c_str())));
+				*result = make_number(atol(a.as<std::string>().c_str()));
 				break;
 			case T_SYM:
-				*result = make_number(round(atof(a.as<std::string *>()->c_str())));
+				*result = make_number(atol(a.as<std::string *>()->c_str()));
 				break;
 			case T_NUM:
-				*result = make_number(round(a.as<double>()));
+				*result = make_number((long)(a.as<double>()));
 				break;
 			case T_CHAR:
 				*result = make_number(a.as<char>());

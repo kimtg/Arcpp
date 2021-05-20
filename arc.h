@@ -34,7 +34,7 @@
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.20";
+	constexpr auto VERSION = "0.21";
 
 	enum type {
 		T_NIL,
