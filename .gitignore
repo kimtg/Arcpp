@@ -17,7 +17,7 @@ build/
 *.exe
 *.o
 *.res
-arcadia
+arc++
 
 # MSTest test Results
 [Tt]est[Rr]esult*/

@@ -1,6 +1,6 @@
 BIN=arc++
 CXXFLAGS=-Wall -O3 -c -std=gnu++17
-LDFLAGS=-s -lm
+LDFLAGS=-s -lm -lstdc++fs
 
 $(BIN): main.o arc.o
 	$(CXX) -o $(BIN) main.o arc.o $(LDFLAGS)
