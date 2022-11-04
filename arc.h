@@ -34,7 +34,7 @@
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.21";
+	constexpr auto VERSION = "0.21.1";
 
 	enum type {
 		T_NIL,
@@ -65,7 +65,7 @@ namespace arc {
 		std::shared_ptr<void> p; // reference-counted pointer
 
 		template <typename T>
-		T &as() {
+		T& as() const {
 			return *std::static_pointer_cast<T>(p);
 		}
 
@@ -111,15 +111,15 @@ namespace arc {
 	error read_expr(const char *input, const char **end, atom *result);
 	void print_expr(atom a);
 	void print_error(error e);
-	bool is(atom a, atom b);
-	bool iso(atom a, atom b);
+	bool is(const atom &a, const atom &b);
+	bool iso(const atom& a, const atom& b);
 	atom make_table();
 	void repl();
-	atom make_cons(atom car_val, atom cdr_val);
+	atom make_cons(const atom &car_val, const atom &cdr_val);
 	atom & car(atom & a);
 	atom & cdr(atom & a);
-	bool no(atom & a);
-	bool sym_is(atom & a, atom & b);
+	bool no(const atom & a);
+	bool sym_is(const atom & a, const atom & b);
 	/* end forward */
 }
 

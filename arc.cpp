@@ -40,11 +40,11 @@ namespace arc {
 		return a.as<arc::cons>().cdr;
 	}
 
-	bool no(atom & a) {
+	bool no(const atom & a) {
 		return a.type == arc::T_NIL;
 	}
 
-	bool sym_is(atom & a, atom & b) {
+	bool sym_is(const atom & a, const atom & b) {
 		return a.as<std::string *>() == b.as<std::string *>();
 	}
 
@@ -52,7 +52,7 @@ namespace arc {
 		return iso(a, b);
 	}
 
-	atom make_cons(atom car_val, atom cdr_val)
+	atom make_cons(const atom &car_val, const atom &cdr_val)
 	{
 		atom a;
 		a.type = T_CONS;
@@ -989,7 +989,7 @@ Addition. This operator also performs string and list concatenation.
 		return apply(fn, v, result);
 	}
 
-	bool is(atom a, atom b) {
+	bool is(const atom &a, const atom &b) {
 		if (a.type == b.type) {
 			switch (a.type) {
 			case T_NIL:
@@ -1021,7 +1021,7 @@ Addition. This operator also performs string and list concatenation.
 		return false;
 	}
 
-	bool iso(atom a, atom b) {
+	bool iso(const atom &a, const atom &b) {
 		if (a.type == b.type) {
 			switch (a.type) {
 			case T_CONS:
