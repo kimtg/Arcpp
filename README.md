@@ -51,7 +51,7 @@ OPTIONS:
 
 ## License ##
 
-   Copyright 2016-2020 Kim, Taegyoon
+   Copyright 2016-2022 Kim, Taegyoon
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
