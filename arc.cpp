@@ -1834,7 +1834,8 @@ A symbol can be coerced to a string.
 		}
 		case T_CLOSURE:
 		{
-			s = "#<closure>";
+			atom a2  = make_cons(sym_fn, make_cons(a.as<struct closure>().args, a.as<struct closure>().body));
+			s = "#<closure>" + to_string(a2, 1);
 			break;
 		}
 		case T_MACRO:
