@@ -1,4 +1,4 @@
-R"EOF(
+const char* stdlib = R"EOF(
 (mac = args (cons 'assign args))
 
 (= list (fn args args))
@@ -1021,4 +1021,4 @@ non-nil."
 "Inserts 'x' between the elements of 'ys'."
   (and ys (cons (car ys)
                 (mappend [list x _] (cdr ys)))))
-)EOF"
+)EOF";

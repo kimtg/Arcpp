@@ -2300,9 +2300,8 @@ A symbol can be coerced to a string.
 		env_assign(global_env, make_sym("dir").as<std::string*>(), make_builtin(builtin_dir));
 		env_assign(global_env, make_sym("pipe-from").as<std::string*>(), make_builtin(builtin_pipe_from));
 
-		const char *stdlib =
-			#include "library.h"
-			;
+#include "library.h"
+
 		error err = load_string(stdlib);
 		if (err) {
 			print_error(err);
