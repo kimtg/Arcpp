@@ -215,15 +215,21 @@ the same elements (be *isomorphic*) without being identical."
 
 ; = place value ...
 (mac = args
-     (cons 'do (map1 (fn (p) (with (place (car p) value (cadr p))
-			      (if (isa place 'cons)
-				  (if (is (car place) 'car)
-				      (list 'scar (cadr place) value)
-				      (if (is (car place) 'cdr)
-					  (list 'scdr (cadr place) value)
-					  (list 'sref (car place) value (cadr place))))
-				  (list 'assign place value))))
-		    (pair args))))
+  `(do ,@(map1
+    (fn (p)
+      (with (place (car p) value (cadr p))
+        (if (isa place 'cons)
+          (if (is (car place) 'car) `(scar ,(cadr place) ,value)
+          (is (car place) 'cdr) `(scdr ,(cadr place) ,value)
+          (is (car place) 'caar) `(scar (car ,(cadr place)) ,value)
+          (is (car place) 'cadr) `(scar (cdr ,(cadr place)) ,value)
+          (is (car place) 'cddr) `(scdr (cdr ,(cadr place)) ,value)
+          `(sref ,(car place) ,value ,(cadr place)))
+          `(assign ,place ,value))))
+        (pair args))))
+
+)EOF"
+R"EOF(
 
 (mac unless (test . body)
   `(if (no ,test) (do ,@body)))
