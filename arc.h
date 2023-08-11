@@ -34,7 +34,7 @@
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.24";
+	constexpr auto VERSION = "0.24.1";
 
 	enum type {
 		T_NIL,
@@ -58,7 +58,7 @@ namespace arc {
 	} error;
 
 	typedef struct atom atom;
-	typedef error(*builtin)(std::vector<atom> &vargs, atom *result);
+	typedef error(*builtin)(const std::vector<atom> &vargs, atom *result);
 
 	struct atom {
 		enum type type = T_NIL;
@@ -94,7 +94,7 @@ namespace arc {
 	};
 
 	/* forward declarations */
-	error apply(atom fn, std::vector<atom> &args, atom *result);
+	error apply(const atom &fn, const std::vector<atom> &args, atom *result);
 	int listp(atom expr);
 	char *slurp_fp(FILE *fp);
 	char *slurp(const char *path);

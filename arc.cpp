@@ -15,7 +15,7 @@ namespace arc {
 	env::env(std::shared_ptr<struct env> parent) : parent(parent) {}
 	closure::closure(const std::shared_ptr<struct env> &env, atom args, atom body) : parent_env(env), args(args), body(body) {}
 
-	atom vector_to_atom(std::vector<atom> &a, int start) {
+	atom vector_to_atom(const std::vector<atom> &a, int start) {
 		atom r = nil;
 		int i;
 		for (i = a.size() - 1; i >= start; i--) {
@@ -662,7 +662,7 @@ namespace arc {
 		}
 	}
 
-	error env_bind(const std::shared_ptr<struct env> &env, atom arg_names, std::vector<atom> &vargs) {
+	error env_bind(const std::shared_ptr<struct env> &env, atom arg_names, const std::vector<atom> &vargs) {
 		size_t i = 0;
 		while (!no(arg_names)) {
 			if (arg_names.type == T_SYM) {
@@ -691,7 +691,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error apply(atom fn, std::vector<atom> &vargs, atom *result)
+	error apply(const atom &fn, const std::vector<atom> &vargs, atom *result)
 	{
 		if (fn.type == T_BUILTIN)
 			return fn.as<builtin>()(vargs, result);
@@ -764,7 +764,7 @@ namespace arc {
 	}
 
 	/* start builtin */
-	error builtin_car(std::vector<atom> &vargs, atom *result)
+	error builtin_car(const std::vector<atom> &vargs, atom *result)
 	{
 		if (vargs.size() != 1)
 			return ERROR_ARGS;
@@ -780,7 +780,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error builtin_cdr(std::vector<atom> &vargs, atom *result)
+	error builtin_cdr(const std::vector<atom> &vargs, atom *result)
 	{
 		if (vargs.size() != 1)
 			return ERROR_ARGS;
@@ -796,7 +796,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error builtin_cons(std::vector<atom> &vargs, atom *result)
+	error builtin_cons(const std::vector<atom> &vargs, atom *result)
 	{
 		if (vargs.size() != 2)
 			return ERROR_ARGS;
@@ -826,7 +826,7 @@ namespace arc {
 + args
 Addition. This operator also performs string and list concatenation.
 	*/
-	error builtin_add(std::vector<atom> &vargs, atom *result)
+	error builtin_add(const std::vector<atom> &vargs, atom *result)
 	{
 		if (vargs.size() == 0) {
 			*result = make_number(0);
@@ -862,7 +862,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_subtract(std::vector<atom> &vargs, atom *result)
+	error builtin_subtract(const std::vector<atom> &vargs, atom *result)
 	{
 		if (vargs.size() == 0) { /* 0 argument */
 			*result = make_number(0);
@@ -883,7 +883,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_multiply(std::vector<atom> &vargs, atom *result)
+	error builtin_multiply(const std::vector<atom> &vargs, atom *result)
 	{
 		double r = 1;
 		size_t i;
@@ -895,7 +895,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_divide(std::vector<atom> &vargs, atom *result)
+	error builtin_divide(const std::vector<atom> &vargs, atom *result)
 	{
 		if (vargs.size() == 0) { /* 0 argument */
 			*result = make_number(1);
@@ -916,7 +916,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_less(std::vector<atom> &vargs, atom *result)
+	error builtin_less(const std::vector<atom> &vargs, atom *result)
 	{
 		if (vargs.size() <= 1) {
 			*result = sym_t;
@@ -947,7 +947,7 @@ Addition. This operator also performs string and list concatenation.
 		}
 	}
 
-	error builtin_greater(std::vector<atom> &vargs, atom *result)
+	error builtin_greater(const std::vector<atom> &vargs, atom *result)
 	{
 		if (vargs.size() <= 1) {
 			*result = sym_t;
@@ -978,7 +978,7 @@ Addition. This operator also performs string and list concatenation.
 		}
 	}
 
-	error builtin_apply(std::vector<atom> &vargs, atom *result)
+	error builtin_apply(const std::vector<atom> &vargs, atom *result)
 	{
 		atom fn;
 
@@ -1034,7 +1034,7 @@ Addition. This operator also performs string and list concatenation.
 		return 0;
 	}
 	
-	error builtin_is(std::vector<atom> &vargs, atom *result)
+	error builtin_is(const std::vector<atom> &vargs, atom *result)
 	{
 		atom a, b;
 		if (vargs.size() <= 1) {
@@ -1054,7 +1054,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_scar(std::vector<atom> &vargs, atom *result) {
+	error builtin_scar(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom place = vargs[0], value;
 		if (place.type != T_CONS) return ERROR_TYPE;
@@ -1064,7 +1064,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_scdr(std::vector<atom> &vargs, atom *result) {
+	error builtin_scdr(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom place = vargs[0], value;
 		if (place.type != T_CONS) return ERROR_TYPE;
@@ -1074,7 +1074,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_mod(std::vector<atom> &vargs, atom *result) {
+	error builtin_mod(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom dividend = vargs[0];
 		atom divisor = vargs[1];
@@ -1084,7 +1084,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_type(std::vector<atom> &vargs, atom *result) {
+	error builtin_type(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom x = vargs[0];
 		switch (x.type) {
@@ -1109,7 +1109,7 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* string-sref obj value index */
-	error builtin_string_sref(std::vector<atom> &vargs, atom *result) {
+	error builtin_string_sref(const std::vector<atom> &vargs, atom *result) {
 		atom index, obj, value;
 		if (vargs.size() != 3) return ERROR_ARGS;
 		obj = vargs[0];
@@ -1122,7 +1122,7 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* disp [arg [output-port]] */
-	error builtin_disp(std::vector<atom> &vargs, atom *result) {
+	error builtin_disp(const std::vector<atom> &vargs, atom *result) {
 		long l = vargs.size();
 		FILE *fp;
 		switch (l) {
@@ -1143,7 +1143,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_writeb(std::vector<atom> &vargs, atom *result) {
+	error builtin_writeb(const std::vector<atom> &vargs, atom *result) {
 		long l = vargs.size();
 		FILE *fp;
 		switch (l) {
@@ -1161,7 +1161,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_expt(std::vector<atom> &vargs, atom *result) {
+	error builtin_expt(const std::vector<atom> &vargs, atom *result) {
 		atom a, b;
 		if (vargs.size() != 2) return ERROR_ARGS;
 		a = vargs[0];
@@ -1170,7 +1170,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_log(std::vector<atom> &vargs, atom *result) {
+	error builtin_log(const std::vector<atom> &vargs, atom *result) {
 		atom a;
 		if (vargs.size() != 1) return ERROR_ARGS;
 		a = vargs[0];
@@ -1178,7 +1178,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_sqrt(std::vector<atom> &vargs, atom *result) {
+	error builtin_sqrt(const std::vector<atom> &vargs, atom *result) {
 		atom a;
 		if (vargs.size() != 1) return ERROR_ARGS;
 		a = vargs[0];
@@ -1186,7 +1186,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_readline(std::vector<atom> &vargs, atom *result) {
+	error builtin_readline(const std::vector<atom> &vargs, atom *result) {
 		long l = vargs.size();
 		char *str;
 		if (l == 0) {
@@ -1203,7 +1203,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_quit(std::vector<atom> &vargs, atom *result) {
+	error builtin_quit(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 0) return ERROR_ARGS;
 		exit(0);
 	}
@@ -1212,7 +1212,7 @@ Addition. This operator also performs string and list concatenation.
 		return (double)rand() / ((double)RAND_MAX + 1.0);
 	}
 
-	error builtin_rand(std::vector<atom> &vargs, atom *result) {
+	error builtin_rand(const std::vector<atom> &vargs, atom *result) {
 		long alen = vargs.size();
 		if (alen == 0) *result = make_number(rand_double());
 		else if (alen == 1) *result = make_number(floor(rand_double() * vargs[0].as<double>()));
@@ -1242,7 +1242,7 @@ Addition. This operator also performs string and list concatenation.
 
 	/* read [input-source [eof]]
 	   Reads a S-expression from the input-source, which can be either a string or an input-port. If the end of file is reached, nil is returned or the specified eof value. */
-	error builtin_read(std::vector<atom> &vargs, atom *result) {
+	error builtin_read(const std::vector<atom> &vargs, atom *result) {
 		size_t alen = vargs.size();
 		error err;
 		if (alen == 0) {
@@ -1280,7 +1280,7 @@ Addition. This operator also performs string and list concatenation.
 		}
 	}
 
-	error builtin_macex(std::vector<atom> &vargs, atom *result) {
+	error builtin_macex(const std::vector<atom> &vargs, atom *result) {
 		long alen = vargs.size();
 		if (alen == 1) {
 			error err = macex(vargs[0], result);
@@ -1290,7 +1290,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_string(std::vector<atom> &vargs, atom *result) {
+	error builtin_string(const std::vector<atom> &vargs, atom *result) {
 		std::string s;
 		size_t i;
 		for (i = 0; i < vargs.size(); i++) {
@@ -1300,7 +1300,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_sym(std::vector<atom> &vargs, atom *result) {
+	error builtin_sym(const std::vector<atom> &vargs, atom *result) {
 		long alen = vargs.size();
 		if (alen == 1) {
 			*result = make_sym(to_string(vargs[0], 0));
@@ -1309,7 +1309,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_system(std::vector<atom> &vargs, atom *result) {
+	error builtin_system(const std::vector<atom> &vargs, atom *result) {
 		long alen = vargs.size();
 		if (alen == 1) {
 			atom a = vargs[0];
@@ -1320,12 +1320,12 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_eval(std::vector<atom> &vargs, atom *result) {
+	error builtin_eval(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) return macex_eval(vargs[0], result);
 		else return ERROR_ARGS;
 	}
 
-	error builtin_load(std::vector<atom> &vargs, atom *result) {
+	error builtin_load(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
@@ -1335,7 +1335,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_int(std::vector<atom> &vargs, atom *result) {
+	error builtin_int(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			switch (a.type) {
@@ -1359,7 +1359,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_trunc(std::vector<atom> &vargs, atom *result) {
+	error builtin_trunc(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
@@ -1369,7 +1369,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_sin(std::vector<atom> &vargs, atom *result) {
+	error builtin_sin(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
@@ -1379,7 +1379,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_cos(std::vector<atom> &vargs, atom *result) {
+	error builtin_cos(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
@@ -1389,7 +1389,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_tan(std::vector<atom> &vargs, atom *result) {
+	error builtin_tan(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
@@ -1399,7 +1399,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_bound(std::vector<atom> &vargs, atom *result) {
+	error builtin_bound(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_SYM) return ERROR_TYPE;
@@ -1410,7 +1410,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_infile(std::vector<atom> &vargs, atom *result) {
+	error builtin_infile(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
@@ -1421,7 +1421,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_outfile(std::vector<atom> &vargs, atom *result) {
+	error builtin_outfile(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
@@ -1433,7 +1433,7 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* close port ... */
-	error builtin_close(std::vector<atom> &vargs, atom *result) {
+	error builtin_close(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() >= 1) {
 			for (atom a : vargs) {
 				if (a.type != T_INPUT && a.type != T_INPUT_PIPE && a.type != T_OUTPUT) return ERROR_TYPE;
@@ -1448,7 +1448,7 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_readb(std::vector<atom> &vargs, atom *result) {
+	error builtin_readb(const std::vector<atom> &vargs, atom *result) {
 		long l = vargs.size();
 		FILE *fp;
 		switch (l) {
@@ -1466,7 +1466,7 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* sread input-port eof */
-	error builtin_sread(std::vector<atom> &vargs, atom *result) {
+	error builtin_sread(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		FILE *fp = vargs[0].as<FILE *>();
 		atom eof = vargs[1];
@@ -1482,7 +1482,7 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* write [arg [output-port]] */
-	error builtin_write(std::vector<atom> &vargs, atom *result) {
+	error builtin_write(const std::vector<atom> &vargs, atom *result) {
 		long l = vargs.size();
 		FILE *fp;
 		switch (l) {
@@ -1508,7 +1508,7 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* newstring length [char] */
-	error builtin_newstring(std::vector<atom> &vargs, atom *result) {
+	error builtin_newstring(const std::vector<atom> &vargs, atom *result) {
 		long arg_len = vargs.size();
 		long length = (long)vargs[0].as<double>();
 		char c = 0;
@@ -1530,7 +1530,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_table(std::vector<atom> &vargs, atom *result) {
+	error builtin_table(const std::vector<atom> &vargs, atom *result) {
 		long arg_len = vargs.size();
 		if (arg_len != 0) return ERROR_ARGS;
 		*result = make_table();
@@ -1538,11 +1538,11 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* maptable proc table */
-	error builtin_maptable(std::vector<atom> &vargs, atom *result) {
+	error builtin_maptable(const std::vector<atom> &vargs, atom *result) {
 		long arg_len = vargs.size();
 		if (arg_len != 2) return ERROR_ARGS;
-		atom &proc = vargs[0];
-		atom &tbl = vargs[1];
+		const atom &proc = vargs[0];
+		const atom &tbl = vargs[1];
 		if (tbl.type != T_TABLE) return ERROR_TYPE;
 		auto &table1 = tbl.as<table>();
 		std::vector<atom> v;
@@ -1558,7 +1558,7 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* table-sref obj value index */
-	error builtin_table_sref(std::vector<atom> &vargs, atom *result) {
+	error builtin_table_sref(const std::vector<atom> &vargs, atom *result) {
 		atom index, obj, value;
 		if (vargs.size() != 3) return ERROR_ARGS;
 		obj = vargs[0];
@@ -1579,7 +1579,7 @@ A string can be coerced to sym, cons (char list), num, or int.
 A list of characters can be coerced to a string.
 A symbol can be coerced to a string.
 	*/
-	error builtin_coerce(std::vector<atom> &vargs, atom *result) {
+	error builtin_coerce(const std::vector<atom> &vargs, atom *result) {
 		atom obj, type;
 		if (vargs.size() != 2) return ERROR_ARGS;
 		obj = vargs[0];
@@ -1666,14 +1666,14 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 
-	error builtin_flushout(std::vector<atom> &vargs, atom *result) {
+	error builtin_flushout(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 0) return ERROR_ARGS;
 		fflush(stdout);
 		*result = sym_t;
 		return ERROR_OK;
 	}
 
-	error builtin_err(std::vector<atom> &vargs, atom *result) {
+	error builtin_err(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 0) return ERROR_ARGS;
 		cur_expr = nil;
 		size_t i;
@@ -1683,7 +1683,7 @@ A symbol can be coerced to a string.
 		return ERROR_USER;
 	}
 
-	error builtin_len(std::vector<atom> &vargs, atom *result) {
+	error builtin_len(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type == T_STRING) {
@@ -1705,7 +1705,7 @@ A symbol can be coerced to a string.
 		return a;
 	}
 
-	error builtin_ccc(std::vector<atom> &vargs, atom *result) {
+	error builtin_ccc(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_BUILTIN && a.type != T_CLOSURE) return ERROR_TYPE;
@@ -1719,7 +1719,7 @@ A symbol can be coerced to a string.
 		return apply(a, args, result);
 	}
 
-	error builtin_mvfile(std::vector<atom>& vargs, atom* result) {
+	error builtin_mvfile(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom a = vargs[0];
 		atom b = vargs[1];
@@ -1732,7 +1732,7 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 	
-	error builtin_rmfile(std::vector<atom>& vargs, atom* result) {
+	error builtin_rmfile(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
@@ -1744,7 +1744,7 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 
-	error builtin_dir(std::vector<atom>& vargs, atom* result) {
+	error builtin_dir(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
@@ -1759,7 +1759,7 @@ A symbol can be coerced to a string.
 	/* pipe-from command
 	 * Executes command in the underlying OS. Then opens an input-port to the results.
 	 */
-	error builtin_pipe_from(std::vector<atom>& vargs, atom* result) {
+	error builtin_pipe_from(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
