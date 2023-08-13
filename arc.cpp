@@ -1719,6 +1719,8 @@ A symbol can be coerced to a string.
 		return apply(a, args, result);
 	}
 
+	// mvfile source destination
+	// Moves the specified file.
 	error builtin_mvfile(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom a = vargs[0];
@@ -1732,6 +1734,8 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 	
+	// rmfile path
+	// Removes the specified file.
 	error builtin_rmfile(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
@@ -1744,15 +1748,64 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 
+	// dir path
+	// Returns the directory contents as a list.
 	error builtin_dir(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
-		if (a.as<std::string>().length() == 0) return ERROR_FILE;
+		const std::string &path = a.as<std::string>();
+		if (path.length() == 0) return ERROR_FILE;
 		*result = nil;
-		for (auto & p : std::filesystem::directory_iterator(a.as<std::string>().c_str())) {
+		for (auto & p : std::filesystem::directory_iterator(path)) {
 			*result = make_cons(make_string(p.path().string()), *result);
 		}
+		return ERROR_OK;
+	}
+
+	// dir-exists path
+	// Tests if a directory exists.
+	error builtin_dir_exists(const std::vector<atom>& vargs, atom* result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom a = vargs[0];
+		if (a.type != T_STRING) return ERROR_TYPE;
+		const std::string &path = a.as<std::string>();
+		if (path.length() == 0) return ERROR_FILE;
+		
+		*result = nil;
+		if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
+			*result = sym_t;
+		}
+		return ERROR_OK;
+	}
+
+	// file-exists path
+	// Tests if a file exists.
+	error builtin_file_exists(const std::vector<atom>& vargs, atom* result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom a = vargs[0];
+		if (a.type != T_STRING) return ERROR_TYPE;
+		const std::string& path = a.as<std::string>();
+		if (path.length() == 0) return ERROR_FILE;
+
+		*result = nil;
+		if (std::filesystem::exists(path) && std::filesystem::is_regular_file(path)) {
+			*result = sym_t;
+		}
+		return ERROR_OK;
+	}
+
+	// ensure-dir path
+	// Creates the specified directory, if it doesn't exist.
+	error builtin_ensure_dir(const std::vector<atom>& vargs, atom* result) {
+		if (vargs.size() != 1) return ERROR_ARGS;
+		atom a = vargs[0];
+		if (a.type != T_STRING) return ERROR_TYPE;
+		const std::string& path = a.as<std::string>();
+		if (path.length() == 0) return ERROR_FILE;
+
+		*result = nil;
+		std::filesystem::create_directories(path);
 		return ERROR_OK;
 	}
 
@@ -2299,6 +2352,9 @@ A symbol can be coerced to a string.
 		env_assign(global_env, make_sym("rmfile").as<std::string*>(), make_builtin(builtin_rmfile));
 		env_assign(global_env, make_sym("dir").as<std::string*>(), make_builtin(builtin_dir));
 		env_assign(global_env, make_sym("pipe-from").as<std::string*>(), make_builtin(builtin_pipe_from));
+		env_assign(global_env, make_sym("dir-exists").as<std::string*>(), make_builtin(builtin_dir_exists));
+		env_assign(global_env, make_sym("file-exists").as<std::string*>(), make_builtin(builtin_file_exists));
+		env_assign(global_env, make_sym("ensure-dir").as<std::string*>(), make_builtin(builtin_ensure_dir));
 
 #include "library.h"
 
