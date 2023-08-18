@@ -2378,11 +2378,8 @@ A symbol can be coerced to a string.
 
 		while ((temp = readline("> ")) != NULL) {
 			input = temp;
+			free(temp);
 		read_start:
-#ifdef READLINE
-			if (temp && *temp)
-				add_history(temp);
-#endif
 
 			const char *p = input.c_str();
 			error err;
@@ -2394,8 +2391,12 @@ A symbol can be coerced to a string.
 				char *line = readline("  ");
 				if (!line) break;
 				input += std::string("\n") + line;
+				free(line);
 				goto read_start;
 			}
+#ifdef READLINE
+			add_history(input.c_str());
+#endif
 
 			if (!err) {
 				while (1) {
@@ -2421,7 +2422,6 @@ A symbol can be coerced to a string.
 			else {
 				print_error(err);
 			}
-			free(temp);
 		}
 	}
 }
