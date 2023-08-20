@@ -7,7 +7,7 @@ namespace arc {
 	std::shared_ptr<struct env> global_env = std::make_shared<struct env>(nullptr); /* the global environment */
 	/* symbols for faster execution */
 	atom sym_t, sym_quote, sym_quasiquote, sym_unquote, sym_unquote_splicing, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char, sym_do;
-	atom cur_expr;
+	atom err_expr; /* for error reporting */
 	atom thrown;
 	std::unordered_map<std::string, std::string *> id_of_sym;
 
@@ -32,11 +32,11 @@ namespace arc {
 		return r;
 	}
 
-	atom & car(atom & a) {
+	atom & car(const atom & a) {
 		return a.as<arc::cons>().car;
 	}
 
-	atom & cdr(atom & a) {
+	atom & cdr(const atom & a) {
 		return a.as<arc::cons>().cdr;
 	}
 
@@ -68,7 +68,7 @@ namespace arc {
 		return a;
 	}
 
-	atom make_sym(std::string s)
+	atom make_sym(const std::string &s)
 	{
 		atom a;
 		a.type = T_SYM;
@@ -115,7 +115,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	atom make_string(const std::string x)
+	atom make_string(const std::string &x)
 	{
 		atom a;
 		a.type = T_STRING;
@@ -151,12 +151,12 @@ namespace arc {
 		return a;
 	}
 
-	void print_expr(atom a)
+	void print_expr(const atom &a)
 	{
 		std::cout << to_string(a, 1);
 	}
 
-	void pr(atom a)
+	void pr(const atom &a)
 	{
 		std::cout << to_string(a, 0);
 	}
@@ -1675,7 +1675,7 @@ A symbol can be coerced to a string.
 
 	error builtin_err(const std::vector<atom> &vargs, atom *result) {
 		if (vargs.size() == 0) return ERROR_ARGS;
-		cur_expr = nil;
+		err_expr = nil;
 		size_t i;
 		for (i = 0; i < vargs.size(); i++) {
 			std::cout << to_string(vargs[i], 0) << '\n';
@@ -1824,45 +1824,47 @@ A symbol can be coerced to a string.
 
 	/* end builtin */
 
-	std::string to_string(atom a, int write) {
+	std::string to_string(const atom &a, int write) {
 		std::string s;
 		switch (a.type) {
 		case T_NIL:
 			s = "nil";
 			break;
-		case T_CONS:
-			if (listp(a) && len(a) == 2) {
-				if (is(car(a), sym_quote)) {
-					s = "'" + to_string(car(cdr(a)), write);
+		case T_CONS: {
+			atom a2 = a;
+			if (listp(a2) && len(a2) == 2) {
+				if (is(car(a2), sym_quote)) {
+					s = "'" + to_string(car(cdr(a2)), write);
 					break;
 				}
-				else if (is(car(a), sym_quasiquote)) {
-					s = "`" + to_string(car(cdr(a)), write);
+				else if (is(car(a2), sym_quasiquote)) {
+					s = "`" + to_string(car(cdr(a2)), write);
 					break;
 				}
-				else if (is(car(a), sym_unquote)) {
-					s = "," + to_string(car(cdr(a)), write);
+				else if (is(car(a2), sym_unquote)) {
+					s = "," + to_string(car(cdr(a2)), write);
 					break;
 				}
-				else if (is(car(a), sym_unquote_splicing)) {
-					s = ",@" + to_string(car(cdr(a)), write);
+				else if (is(car(a2), sym_unquote_splicing)) {
+					s = ",@" + to_string(car(cdr(a2)), write);
 					break;
 				}
 			}
-			s = "(" + to_string(car(a), write);
-			a = cdr(a);
-			while (!no(a)) {
+			s = "(" + to_string(car(a2), write);
+			a2 = cdr(a2);
+			while (!no(a2)) {
 				if (a.type == T_CONS) {
-					s += " " + to_string(car(a), write);
-					a = cdr(a);
+					s += " " + to_string(car(a2), write);
+					a2 = cdr(a2);
 				}
 				else {
-					s += " . " + to_string(a, write);
+					s += " . " + to_string(a2, write);
 					break;
 				}
 			}
 			s += ")";
 			break;
+		}
 		case T_SYM:
 			s = *a.as<std::string *>();
 			break;
@@ -1981,7 +1983,7 @@ A symbol can be coerced to a string.
 	error macex(atom expr, atom *result) {
 		error err = ERROR_OK;
 
-		cur_expr = expr; /* for error reporting */
+		err_expr = expr;
 
 		if (expr.type != T_CONS || !listp(expr)) {
 			*result = expr;
@@ -2095,10 +2097,10 @@ A symbol can be coerced to a string.
 	{
 		error err;
 	start_eval:
-
-		cur_expr = expr; /* for error reporting */
+				
 		if (expr.type == T_SYM) {
 			err = env_get(env, expr.as<std::string *>(), result);
+			if (err) err_expr = expr;
 			return err;
 		}
 		else if (expr.type != T_CONS) {
@@ -2106,10 +2108,11 @@ A symbol can be coerced to a string.
 			return ERROR_OK;
 		}
 		else if (!listp(expr)) {
+			err_expr = expr;
 			return ERROR_SYNTAX;
 		}
 		else {
-			atom op = car(expr);
+			const atom &op = car(expr);
 			atom args = cdr(expr);
 
 			if (op.type == T_SYM) {
@@ -2123,6 +2126,7 @@ A symbol can be coerced to a string.
 						}
 						err = eval_expr(car(args), env, result);
 						if (err) {
+							err_expr = expr;
 							return err;
 						}
 						if (!no(*result)) { /* then */
@@ -2137,6 +2141,7 @@ A symbol can be coerced to a string.
 				else if (sym_is(op, sym_assign)) {
 					atom sym;
 					if (no(args) || no(cdr(args))) {
+						err_expr = expr;
 						return ERROR_ARGS;
 					}
 
@@ -2147,14 +2152,17 @@ A symbol can be coerced to a string.
 							return err;
 						}
 						err = env_assign_eq(env, sym.as<std::string *>(), *result);
+						if (err) err_expr = expr;
 						return err;
 					}
 					else {
+						err_expr = expr;
 						return ERROR_TYPE;
 					}
 				}
 				else if (sym_is(op, sym_quote)) {
 					if (no(args) || !no(cdr(args))) {
+						err_expr = expr;
 						return ERROR_ARGS;
 					}
 
@@ -2163,9 +2171,11 @@ A symbol can be coerced to a string.
 				}
 				else if (sym_is(op, sym_fn)) {
 					if (no(args)) {
+						err_expr = expr;
 						return ERROR_ARGS;
 					}
 					err = make_closure(env, car(args), cdr(args), result);
+					if (err) err_expr = expr;
 					return err;
 				}
 				else if (sym_is(op, sym_do)) {
@@ -2179,6 +2189,7 @@ A symbol can be coerced to a string.
 						}
 						error err = eval_expr(car(args), env, result);
 						if (err) {
+							err_expr = expr;
 							return err;
 						}
 						args = cdr(args);
@@ -2189,11 +2200,13 @@ A symbol can be coerced to a string.
 					atom name, macro;
 
 					if (no(args) || no(cdr(args)) || no(cdr(cdr(args)))) {
+						err_expr = expr;
 						return ERROR_ARGS;
 					}
 
 					name = car(args);
 					if (name.type != T_SYM) {
+						err_expr = expr;
 						return ERROR_TYPE;
 					}
 
@@ -2202,9 +2215,11 @@ A symbol can be coerced to a string.
 						macro.type = T_MACRO;
 						*result = name;
 						err = env_assign(env, name.as<std::string *>(), macro);
+						if (err) err_expr = expr;
 						return err;
 					}
 					else {
+						err_expr = expr;
 						return err;
 					}
 				}
@@ -2214,6 +2229,7 @@ A symbol can be coerced to a string.
 			atom fn;
 			err = eval_expr(op, env, &fn);
 			if (err) {
+				err_expr = expr;
 				return err;
 			}
 
@@ -2224,6 +2240,7 @@ A symbol can be coerced to a string.
 				atom r;
 				err = eval_expr(car(*p), env, &r);
 				if (err) {
+					err_expr = expr;
 					return err;
 				}
 				vargs.push_back(r);
@@ -2250,6 +2267,7 @@ A symbol can be coerced to a string.
 					atom r;
 					error err = eval_expr(car(body), env, &r);
 					if (err) {
+						err_expr = expr;
 						return err;
 					}
 					body = cdr(body);
@@ -2258,6 +2276,7 @@ A symbol can be coerced to a string.
 			}
 			else {
 				err = apply(fn, vargs, result);
+				if (err) err_expr = expr;
 			}
 			return err;
 		}
@@ -2367,7 +2386,7 @@ A symbol can be coerced to a string.
 	void print_error(error e) {
 		if (e != ERROR_USER) {
 			printf("%s : ", error_string[e]);
-			print_expr(cur_expr);
+			print_expr(err_expr);
 			puts("");
 		}
 	}

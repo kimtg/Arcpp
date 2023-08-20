@@ -34,7 +34,7 @@
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.26";
+	constexpr auto VERSION = "0.26.1";
 
 	enum type {
 		T_NIL,
@@ -100,7 +100,7 @@ namespace arc {
 	char *slurp(const char *path);
 	error eval_expr(atom expr, std::shared_ptr<struct env> env, atom *result);
 	error macex(atom expr, atom *result);
-	std::string to_string(atom a, int write);
+	std::string to_string(const atom &a, int write);
 	error macex_eval(atom expr, atom *result);
 	error arc_load_file(const char *path);
 	void arc_init();
@@ -109,15 +109,15 @@ namespace arc {
 #endif
 	char *readline_fp(const char *prompt, FILE *fp);
 	error read_expr(const char *input, const char **end, atom *result);
-	void print_expr(atom a);
+	void print_expr(const atom &a);
 	void print_error(error e);
 	bool is(const atom &a, const atom &b);
 	bool iso(const atom& a, const atom& b);
 	atom make_table();
 	void repl();
 	atom make_cons(const atom &car_val, const atom &cdr_val);
-	atom & car(atom & a);
-	atom & cdr(atom & a);
+	atom & car(const atom & a);
+	atom & cdr(const atom & a);
 	bool no(const atom & a);
 	bool sym_is(const atom & a, const atom & b);
 	/* end forward */
