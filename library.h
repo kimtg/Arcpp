@@ -1027,4 +1027,13 @@ non-nil."
 "Inserts 'x' between the elements of 'ys'."
   (and ys (cons (car ys)
                 (mappend [list x _] (cdr ys)))))
+(def memo (f)
+"Turns function 'f' into a _memoized_ version that also stores results returned
+by args passed in, so that future calls with the same inputs can save work."
+  (let cache (table)
+    (fn args (aif (cache args) it (= (cache args) (apply f args))))))
+
+(mac defmemo (name parms . body)
+"Like [[def]] but defines a memoized function. See [[memo]]."
+  `(assign ,name (memo (fn ,parms ,@body))))
 )EOF";
