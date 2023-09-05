@@ -1824,41 +1824,40 @@ A symbol can be coerced to a string.
 
 	/* end builtin */
 
-	std::string to_string(const atom &a, int write) {
+	std::string to_string(atom a, int write) {
 		std::string s;
 		switch (a.type) {
 		case T_NIL:
 			s = "nil";
 			break;
 		case T_CONS: {
-			atom a2 = a;
-			if (listp(a2) && len(a2) == 2) {
-				if (is(car(a2), sym_quote)) {
-					s = "'" + to_string(car(cdr(a2)), write);
+			if (listp(a) && len(a) == 2) {
+				if (is(car(a), sym_quote)) {
+					s = "'" + to_string(car(cdr(a)), write);
 					break;
 				}
-				else if (is(car(a2), sym_quasiquote)) {
-					s = "`" + to_string(car(cdr(a2)), write);
+				else if (is(car(a), sym_quasiquote)) {
+					s = "`" + to_string(car(cdr(a)), write);
 					break;
 				}
-				else if (is(car(a2), sym_unquote)) {
-					s = "," + to_string(car(cdr(a2)), write);
+				else if (is(car(a), sym_unquote)) {
+					s = "," + to_string(car(cdr(a)), write);
 					break;
 				}
-				else if (is(car(a2), sym_unquote_splicing)) {
-					s = ",@" + to_string(car(cdr(a2)), write);
+				else if (is(car(a), sym_unquote_splicing)) {
+					s = ",@" + to_string(car(cdr(a)), write);
 					break;
 				}
 			}
-			s = "(" + to_string(car(a2), write);
-			a2 = cdr(a2);
-			while (!no(a2)) {
+			s = "(" + to_string(car(a), write);
+			a = cdr(a);
+			while (!no(a)) {
 				if (a.type == T_CONS) {
-					s += " " + to_string(car(a2), write);
-					a2 = cdr(a2);
+					s += " " + to_string(car(a), write);
+					a = cdr(a);
 				}
 				else {
-					s += " . " + to_string(a2, write);
+					s += " . " + to_string(a, write);
 					break;
 				}
 			}

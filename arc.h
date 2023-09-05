@@ -34,7 +34,7 @@
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.27";
+	constexpr auto VERSION = "0.28";
 
 	enum type {
 		T_NIL,
@@ -100,7 +100,7 @@ namespace arc {
 	char *slurp(const char *path);
 	error eval_expr(atom expr, std::shared_ptr<struct env> env, atom *result);
 	error macex(atom expr, atom *result);
-	std::string to_string(const atom &a, int write);
+	std::string to_string(atom a, int write);
 	error macex_eval(atom expr, atom *result);
 	error arc_load_file(const char *path);
 	void arc_init();
