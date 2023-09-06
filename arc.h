@@ -61,9 +61,10 @@ namespace arc {
 	typedef struct atom atom;
 	typedef error(*builtin)(const std::vector<atom> &vargs, atom *result);
 	typedef std::unordered_map<atom, atom> table;
-	typedef std::unordered_map<std::string*, atom> env_table;
 	typedef std::string* sym;
-
+	typedef std::unordered_map<sym, atom> env_table;
+	
+	
 	struct atom {
 		enum type type = T_NIL;
 		std::variant<
@@ -154,7 +155,7 @@ namespace std {
 				}
 				return r;
 			case arc::T_SYM:
-				return hash<std::string*>()(std::get<arc::sym>(a.val));
+				return hash<arc::sym>()(std::get<arc::sym>(a.val));
 			case arc::T_STRING: {
 				return hash<string>()(a.asp<string>());
 			}

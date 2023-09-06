@@ -10,7 +10,7 @@ namespace arc {
 	atom sym_t, sym_quote, sym_quasiquote, sym_unquote, sym_unquote_splicing, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char, sym_do;
 	atom err_expr; /* for error reporting */
 	atom thrown;
-	std::unordered_map<std::string, std::string*> id_of_sym;
+	std::unordered_map<std::string, sym> id_of_sym;
 
 	cons::cons(atom car, atom cdr) : car(car), cdr(cdr) {}
 	env::env(std::shared_ptr<struct env> parent) : parent(parent) {}
@@ -538,7 +538,7 @@ namespace arc {
 		return (char*)realloc(str, sizeof(char) * len);
 	}
 
-	error env_get(std::shared_ptr<struct env> env, std::string* symbol, atom* result)
+	error env_get(std::shared_ptr<struct env> env, sym symbol, atom* result)
 	{
 		while (1) {
 			auto& tbl = env->table;
@@ -555,13 +555,13 @@ namespace arc {
 		}
 	}
 
-	error env_assign(const std::shared_ptr<struct env>& env, std::string* symbol, atom value) {
+	error env_assign(const std::shared_ptr<struct env>& env, sym symbol, atom value) {
 		auto& tbl = env->table;
 		tbl[symbol] = value;
 		return ERROR_OK;
 	}
 
-	error env_assign_eq(std::shared_ptr<struct env> env, std::string* symbol, atom value) {
+	error env_assign_eq(std::shared_ptr<struct env> env, sym symbol, atom value) {
 		while (1) {
 			auto& tbl = env->table;
 			auto found = tbl.find(symbol);
@@ -1345,7 +1345,7 @@ Addition. This operator also performs string and list concatenation.
 				*result = make_number(atol(a.asp<string>().c_str()));
 				break;
 			case T_SYM:
-				*result = make_number(atol(get<std::string*>(a.val)->c_str()));
+				*result = make_number(atol(get<sym>(a.val)->c_str()));
 				break;
 			case T_NUM:
 				*result = make_number((long)(get<double>(a.val)));
@@ -1405,7 +1405,7 @@ Addition. This operator also performs string and list concatenation.
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_SYM) return ERROR_TYPE;
-			error err = env_get(global_env, get<std::string*>(a.val), result);
+			error err = env_get(global_env, get<sym>(a.val), result);
 			*result = (err ? nil : sym_t);
 			return ERROR_OK;
 		}
@@ -1655,7 +1655,7 @@ A symbol can be coerced to a string.
 			break;
 		case T_SYM:
 			if (is(type, sym_string)) {
-				*result = make_string(*get<std::string*>(obj.val));
+				*result = make_string(*get<sym>(obj.val));
 			}
 			else if (is(type, sym_sym))
 				*result = obj;
@@ -1867,7 +1867,7 @@ A symbol can be coerced to a string.
 			break;
 		}
 		case T_SYM:
-			s = *get<std::string*>(a.val);
+			s = *get<sym>(a.val);
 			break;
 		case T_STRING:
 			if (write) s += "\"";
@@ -1994,7 +1994,7 @@ A symbol can be coerced to a string.
 			atom op = car(expr);
 
 			/* Handle quote */
-			if (op.type == T_SYM && get<std::string*>(op.val) == get<sym>(sym_quote.val)) {
+			if (op.type == T_SYM && get<sym>(op.val) == get<sym>(sym_quote.val)) {
 				*result = expr;
 				return ERROR_OK;
 			}
@@ -2002,7 +2002,7 @@ A symbol can be coerced to a string.
 			atom args = cdr(expr);
 
 			/* Is it a macro? */
-			if (op.type == T_SYM && !env_get(global_env, get<std::string*>(op.val), result) && result->type == T_MACRO) {
+			if (op.type == T_SYM && !env_get(global_env, get<sym>(op.val), result) && result->type == T_MACRO) {
 				/* Evaluate operator */
 				op = *result;
 
@@ -2100,7 +2100,7 @@ A symbol can be coerced to a string.
 	start_eval:
 
 		if (expr.type == T_SYM) {
-			err = env_get(env, get<std::string*>(expr.val), result);
+			err = env_get(env, get<sym>(expr.val), result);
 			if (err) err_expr = expr;
 			return err;
 		}
@@ -2140,19 +2140,19 @@ A symbol can be coerced to a string.
 					return ERROR_OK;
 				}
 				else if (sym_is(op, sym_assign)) {
-					atom sym;
+					atom sym1;
 					if (no(args) || no(cdr(args))) {
 						err_expr = expr;
 						return ERROR_ARGS;
 					}
 
-					sym = car(args);
-					if (sym.type == T_SYM) {
+					sym1 = car(args);
+					if (sym1.type == T_SYM) {
 						err = eval_expr(car(cdr(args)), env, result);
 						if (err) {
 							return err;
 						}
-						err = env_assign_eq(env, get<std::string*>(sym.val), *result);
+						err = env_assign_eq(env, get<sym>(sym1.val), *result);
 						if (err) err_expr = expr;
 						return err;
 					}
@@ -2215,7 +2215,7 @@ A symbol can be coerced to a string.
 					if (!err) {
 						macro.type = T_MACRO;
 						*result = name;
-						err = env_assign(env, get<std::string*>(name.val), macro);
+						err = env_assign(env, get<sym>(name.val), macro);
 						if (err) err_expr = expr;
 						return err;
 					}
@@ -2310,71 +2310,71 @@ A symbol can be coerced to a string.
 		sym_int = make_sym("int");
 		sym_char = make_sym("char");
 		sym_do = make_sym("do");
-
+		
 		env_assign(global_env, get<sym>(sym_t.val), sym_t);
-		env_assign(global_env, get<std::string*>(make_sym("nil").val), nil);
-		env_assign(global_env, get<std::string*>(make_sym("car").val), make_builtin(builtin_car));
-		env_assign(global_env, get<std::string*>(make_sym("cdr").val), make_builtin(builtin_cdr));
-		env_assign(global_env, get<std::string*>(make_sym("cons").val), make_builtin(builtin_cons));
-		env_assign(global_env, get<std::string*>(make_sym("+").val), make_builtin(builtin_add));
-		env_assign(global_env, get<std::string*>(make_sym("-").val), make_builtin(builtin_subtract));
-		env_assign(global_env, get<std::string*>(make_sym("*").val), make_builtin(builtin_multiply));
-		env_assign(global_env, get<std::string*>(make_sym("/").val), make_builtin(builtin_divide));
-		env_assign(global_env, get<std::string*>(make_sym("<").val), make_builtin(builtin_less));
-		env_assign(global_env, get<std::string*>(make_sym(">").val), make_builtin(builtin_greater));
-		env_assign(global_env, get<std::string*>(make_sym("apply").val), make_builtin(builtin_apply));
-		env_assign(global_env, get<std::string*>(make_sym("is").val), make_builtin(builtin_is));
-		env_assign(global_env, get<std::string*>(make_sym("scar").val), make_builtin(builtin_scar));
-		env_assign(global_env, get<std::string*>(make_sym("scdr").val), make_builtin(builtin_scdr));
-		env_assign(global_env, get<std::string*>(make_sym("mod").val), make_builtin(builtin_mod));
-		env_assign(global_env, get<std::string*>(make_sym("type").val), make_builtin(builtin_type));
-		env_assign(global_env, get<std::string*>(make_sym("string-sref").val), make_builtin(builtin_string_sref));
-		env_assign(global_env, get<std::string*>(make_sym("writeb").val), make_builtin(builtin_writeb));
-		env_assign(global_env, get<std::string*>(make_sym("expt").val), make_builtin(builtin_expt));
-		env_assign(global_env, get<std::string*>(make_sym("log").val), make_builtin(builtin_log));
-		env_assign(global_env, get<std::string*>(make_sym("sqrt").val), make_builtin(builtin_sqrt));
-		env_assign(global_env, get<std::string*>(make_sym("readline").val), make_builtin(builtin_readline));
-		env_assign(global_env, get<std::string*>(make_sym("quit").val), make_builtin(builtin_quit));
-		env_assign(global_env, get<std::string*>(make_sym("rand").val), make_builtin(builtin_rand));
-		env_assign(global_env, get<std::string*>(make_sym("read").val), make_builtin(builtin_read));
-		env_assign(global_env, get<std::string*>(make_sym("macex").val), make_builtin(builtin_macex));
-		env_assign(global_env, get<std::string*>(make_sym("string").val), make_builtin(builtin_string));
-		env_assign(global_env, get<std::string*>(make_sym("sym").val), make_builtin(builtin_sym));
-		env_assign(global_env, get<std::string*>(make_sym("system").val), make_builtin(builtin_system));
-		env_assign(global_env, get<std::string*>(make_sym("eval").val), make_builtin(builtin_eval));
-		env_assign(global_env, get<std::string*>(make_sym("load").val), make_builtin(builtin_load));
-		env_assign(global_env, get<std::string*>(make_sym("int").val), make_builtin(builtin_int));
-		env_assign(global_env, get<std::string*>(make_sym("trunc").val), make_builtin(builtin_trunc));
-		env_assign(global_env, get<std::string*>(make_sym("sin").val), make_builtin(builtin_sin));
-		env_assign(global_env, get<std::string*>(make_sym("cos").val), make_builtin(builtin_cos));
-		env_assign(global_env, get<std::string*>(make_sym("tan").val), make_builtin(builtin_tan));
-		env_assign(global_env, get<std::string*>(make_sym("bound").val), make_builtin(builtin_bound));
-		env_assign(global_env, get<std::string*>(make_sym("infile").val), make_builtin(builtin_infile));
-		env_assign(global_env, get<std::string*>(make_sym("outfile").val), make_builtin(builtin_outfile));
-		env_assign(global_env, get<std::string*>(make_sym("close").val), make_builtin(builtin_close));
-		env_assign(global_env, get<std::string*>(make_sym("stdin").val), make_input(stdin));
-		env_assign(global_env, get<std::string*>(make_sym("stdout").val), make_output(stdout));
-		env_assign(global_env, get<std::string*>(make_sym("stderr").val), make_output(stderr));
-		env_assign(global_env, get<std::string*>(make_sym("disp").val), make_builtin(builtin_disp));
-		env_assign(global_env, get<std::string*>(make_sym("readb").val), make_builtin(builtin_readb));
-		env_assign(global_env, get<std::string*>(make_sym("sread").val), make_builtin(builtin_sread));
-		env_assign(global_env, get<std::string*>(make_sym("write").val), make_builtin(builtin_write));
-		env_assign(global_env, get<std::string*>(make_sym("newstring").val), make_builtin(builtin_newstring));
-		env_assign(global_env, get<std::string*>(make_sym("table").val), make_builtin(builtin_table));
-		env_assign(global_env, get<std::string*>(make_sym("maptable").val), make_builtin(builtin_maptable));
-		env_assign(global_env, get<std::string*>(make_sym("table-sref").val), make_builtin(builtin_table_sref));
-		env_assign(global_env, get<std::string*>(make_sym("coerce").val), make_builtin(builtin_coerce));
-		env_assign(global_env, get<std::string*>(make_sym("flushout").val), make_builtin(builtin_flushout));
-		env_assign(global_env, get<std::string*>(make_sym("err").val), make_builtin(builtin_err));
-		env_assign(global_env, get<std::string*>(make_sym("len").val), make_builtin(builtin_len));
-		env_assign(global_env, get<std::string*>(make_sym("ccc").val), make_builtin(builtin_ccc));
-		env_assign(global_env, get<std::string*>(make_sym("mvfile").val), make_builtin(builtin_mvfile));
-		env_assign(global_env, get<std::string*>(make_sym("rmfile").val), make_builtin(builtin_rmfile));
-		env_assign(global_env, get<std::string*>(make_sym("dir").val), make_builtin(builtin_dir));
-		env_assign(global_env, get<std::string*>(make_sym("pipe-from").val), make_builtin(builtin_pipe_from));
-		env_assign(global_env, get<std::string*>(make_sym("dir-exists").val), make_builtin(builtin_dir_exists));
-		env_assign(global_env, get<std::string*>(make_sym("file-exists").val), make_builtin(builtin_file_exists));
-		env_assign(global_env, get<std::string*>(make_sym("ensure-dir").val), make_builtin(builtin_ensure_dir));
+		env_assign(global_env, get<sym>(make_sym("nil").val), nil);
+		env_assign(global_env, get<sym>(make_sym("car").val), make_builtin(builtin_car));
+		env_assign(global_env, get<sym>(make_sym("cdr").val), make_builtin(builtin_cdr));
+		env_assign(global_env, get<sym>(make_sym("cons").val), make_builtin(builtin_cons));
+		env_assign(global_env, get<sym>(make_sym("+").val), make_builtin(builtin_add));
+		env_assign(global_env, get<sym>(make_sym("-").val), make_builtin(builtin_subtract));
+		env_assign(global_env, get<sym>(make_sym("*").val), make_builtin(builtin_multiply));
+		env_assign(global_env, get<sym>(make_sym("/").val), make_builtin(builtin_divide));
+		env_assign(global_env, get<sym>(make_sym("<").val), make_builtin(builtin_less));
+		env_assign(global_env, get<sym>(make_sym(">").val), make_builtin(builtin_greater));
+		env_assign(global_env, get<sym>(make_sym("apply").val), make_builtin(builtin_apply));
+		env_assign(global_env, get<sym>(make_sym("is").val), make_builtin(builtin_is));
+		env_assign(global_env, get<sym>(make_sym("scar").val), make_builtin(builtin_scar));
+		env_assign(global_env, get<sym>(make_sym("scdr").val), make_builtin(builtin_scdr));
+		env_assign(global_env, get<sym>(make_sym("mod").val), make_builtin(builtin_mod));
+		env_assign(global_env, get<sym>(make_sym("type").val), make_builtin(builtin_type));
+		env_assign(global_env, get<sym>(make_sym("string-sref").val), make_builtin(builtin_string_sref));
+		env_assign(global_env, get<sym>(make_sym("writeb").val), make_builtin(builtin_writeb));
+		env_assign(global_env, get<sym>(make_sym("expt").val), make_builtin(builtin_expt));
+		env_assign(global_env, get<sym>(make_sym("log").val), make_builtin(builtin_log));
+		env_assign(global_env, get<sym>(make_sym("sqrt").val), make_builtin(builtin_sqrt));
+		env_assign(global_env, get<sym>(make_sym("readline").val), make_builtin(builtin_readline));
+		env_assign(global_env, get<sym>(make_sym("quit").val), make_builtin(builtin_quit));
+		env_assign(global_env, get<sym>(make_sym("rand").val), make_builtin(builtin_rand));
+		env_assign(global_env, get<sym>(make_sym("read").val), make_builtin(builtin_read));
+		env_assign(global_env, get<sym>(make_sym("macex").val), make_builtin(builtin_macex));
+		env_assign(global_env, get<sym>(make_sym("string").val), make_builtin(builtin_string));
+		env_assign(global_env, get<sym>(make_sym("sym").val), make_builtin(builtin_sym));
+		env_assign(global_env, get<sym>(make_sym("system").val), make_builtin(builtin_system));
+		env_assign(global_env, get<sym>(make_sym("eval").val), make_builtin(builtin_eval));
+		env_assign(global_env, get<sym>(make_sym("load").val), make_builtin(builtin_load));
+		env_assign(global_env, get<sym>(make_sym("int").val), make_builtin(builtin_int));
+		env_assign(global_env, get<sym>(make_sym("trunc").val), make_builtin(builtin_trunc));
+		env_assign(global_env, get<sym>(make_sym("sin").val), make_builtin(builtin_sin));
+		env_assign(global_env, get<sym>(make_sym("cos").val), make_builtin(builtin_cos));
+		env_assign(global_env, get<sym>(make_sym("tan").val), make_builtin(builtin_tan));
+		env_assign(global_env, get<sym>(make_sym("bound").val), make_builtin(builtin_bound));
+		env_assign(global_env, get<sym>(make_sym("infile").val), make_builtin(builtin_infile));
+		env_assign(global_env, get<sym>(make_sym("outfile").val), make_builtin(builtin_outfile));
+		env_assign(global_env, get<sym>(make_sym("close").val), make_builtin(builtin_close));
+		env_assign(global_env, get<sym>(make_sym("stdin").val), make_input(stdin));
+		env_assign(global_env, get<sym>(make_sym("stdout").val), make_output(stdout));
+		env_assign(global_env, get<sym>(make_sym("stderr").val), make_output(stderr));
+		env_assign(global_env, get<sym>(make_sym("disp").val), make_builtin(builtin_disp));
+		env_assign(global_env, get<sym>(make_sym("readb").val), make_builtin(builtin_readb));
+		env_assign(global_env, get<sym>(make_sym("sread").val), make_builtin(builtin_sread));
+		env_assign(global_env, get<sym>(make_sym("write").val), make_builtin(builtin_write));
+		env_assign(global_env, get<sym>(make_sym("newstring").val), make_builtin(builtin_newstring));
+		env_assign(global_env, get<sym>(make_sym("table").val), make_builtin(builtin_table));
+		env_assign(global_env, get<sym>(make_sym("maptable").val), make_builtin(builtin_maptable));
+		env_assign(global_env, get<sym>(make_sym("table-sref").val), make_builtin(builtin_table_sref));
+		env_assign(global_env, get<sym>(make_sym("coerce").val), make_builtin(builtin_coerce));
+		env_assign(global_env, get<sym>(make_sym("flushout").val), make_builtin(builtin_flushout));
+		env_assign(global_env, get<sym>(make_sym("err").val), make_builtin(builtin_err));
+		env_assign(global_env, get<sym>(make_sym("len").val), make_builtin(builtin_len));
+		env_assign(global_env, get<sym>(make_sym("ccc").val), make_builtin(builtin_ccc));
+		env_assign(global_env, get<sym>(make_sym("mvfile").val), make_builtin(builtin_mvfile));
+		env_assign(global_env, get<sym>(make_sym("rmfile").val), make_builtin(builtin_rmfile));
+		env_assign(global_env, get<sym>(make_sym("dir").val), make_builtin(builtin_dir));
+		env_assign(global_env, get<sym>(make_sym("pipe-from").val), make_builtin(builtin_pipe_from));
+		env_assign(global_env, get<sym>(make_sym("dir-exists").val), make_builtin(builtin_dir_exists));
+		env_assign(global_env, get<sym>(make_sym("file-exists").val), make_builtin(builtin_file_exists));
+		env_assign(global_env, get<sym>(make_sym("ensure-dir").val), make_builtin(builtin_ensure_dir));
 
 #include "library.h"
 
