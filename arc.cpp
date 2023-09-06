@@ -2,20 +2,21 @@
 #include <ctype.h>
 
 namespace arc {
-	const char *error_string[] = { "", "Syntax error", "Symbol not bound", "Wrong number of arguments", "Wrong type", "File error", "" };
+	using namespace std;
+	const char* error_string[] = { "", "Syntax error", "Symbol not bound", "Wrong number of arguments", "Wrong type", "File error", "" };
 	const atom nil;
 	std::shared_ptr<struct env> global_env = std::make_shared<struct env>(nullptr); /* the global environment */
 	/* symbols for faster execution */
 	atom sym_t, sym_quote, sym_quasiquote, sym_unquote, sym_unquote_splicing, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char, sym_do;
 	atom err_expr; /* for error reporting */
 	atom thrown;
-	std::unordered_map<std::string, std::string *> id_of_sym;
+	std::unordered_map<std::string, std::string*> id_of_sym;
 
 	cons::cons(atom car, atom cdr) : car(car), cdr(cdr) {}
 	env::env(std::shared_ptr<struct env> parent) : parent(parent) {}
-	closure::closure(const std::shared_ptr<struct env> &env, atom args, atom body) : parent_env(env), args(args), body(body) {}
+	closure::closure(const std::shared_ptr<struct env>& env, atom args, atom body) : parent_env(env), args(args), body(body) {}
 
-	atom vector_to_atom(const std::vector<atom> &a, int start) {
+	atom vector_to_atom(const std::vector<atom>& a, int start) {
 		atom r = nil;
 		int i;
 		for (i = a.size() - 1; i >= start; i--) {
@@ -32,31 +33,31 @@ namespace arc {
 		return r;
 	}
 
-	atom & car(const atom & a) {
-		return a.as<arc::cons>().car;
+	atom& car(const atom& a) {
+		return std::get<std::shared_ptr<struct cons>>(a.val)->car;
 	}
 
-	atom & cdr(const atom & a) {
-		return a.as<arc::cons>().cdr;
+	atom& cdr(const atom& a) {
+		return std::get<std::shared_ptr<struct cons>>(a.val)->cdr;
 	}
 
-	bool no(const atom & a) {
+	bool no(const atom& a) {
 		return a.type == arc::T_NIL;
 	}
 
-	bool sym_is(const atom & a, const atom & b) {
-		return a.as<std::string *>() == b.as<std::string *>();
+	bool sym_is(const atom& a, const atom& b) {
+		return std::get<sym>(a.val) == std::get<sym>(b.val);
 	}
 
-	bool operator ==(const atom &a, const atom &b) {
+	bool operator ==(const atom& a, const atom& b) {
 		return iso(a, b);
 	}
 
-	atom make_cons(const atom &car_val, const atom &cdr_val)
+	atom make_cons(const atom& car_val, const atom& cdr_val)
 	{
 		atom a;
 		a.type = T_CONS;
-		a.p = std::make_shared<cons>(car_val, cdr_val);
+		a.val = std::make_shared<cons>(car_val, cdr_val);
 		return a;
 	}
 
@@ -64,23 +65,23 @@ namespace arc {
 	{
 		atom a;
 		a.type = T_NUM;
-		a.p = std::make_shared<double>(x);
+		a.val = x;
 		return a;
 	}
 
-	atom make_sym(const std::string &s)
+	atom make_sym(const std::string& s)
 	{
 		atom a;
 		a.type = T_SYM;
 
 		auto found = id_of_sym.find(s);
 		if (found != id_of_sym.end()) {
-			a.p = std::make_shared<std::string *>(found->second);
+			a.val = found->second;
 			return a;
 		}
 
-		a.p = std::make_shared<std::string *>(new std::string(s));
-		id_of_sym[s] = a.as<std::string *>();
+		a.val = new std::string(s);
+		id_of_sym[s] = std::get<sym>(a.val);
 		return a;
 	}
 
@@ -88,11 +89,11 @@ namespace arc {
 	{
 		atom a;
 		a.type = T_BUILTIN;
-		a.p = std::make_shared<builtin>(fn);
+		a.val = fn;
 		return a;
 	}
 
-	error make_closure(const std::shared_ptr<struct env> &env, atom args, atom body, atom *result)
+	error make_closure(const std::shared_ptr<struct env>& env, atom args, atom body, atom* result)
 	{
 		atom p;
 
@@ -110,62 +111,62 @@ namespace arc {
 		}
 
 		result->type = T_CLOSURE;
-		result->p = std::make_shared<struct closure>(env, args, body);
+		result->val = std::make_shared<struct closure>(env, args, body);
 
 		return ERROR_OK;
 	}
 
-	atom make_string(const std::string &x)
+	atom make_string(const std::string& x)
 	{
 		atom a;
 		a.type = T_STRING;
-		a.p = std::make_shared<std::string>(x);
+		a.val = make_shared<string>(x);
 		return a;
 	}
 
-	atom make_input(FILE *fp) {
+	atom make_input(FILE* fp) {
 		atom a;
 		a.type = T_INPUT;
-		a.p = std::make_shared<FILE *>(fp);
+		a.val = fp;
 		return a;
 	}
 
 	atom make_input_pipe(FILE* fp) {
 		atom a;
 		a.type = T_INPUT_PIPE;
-		a.p = std::make_shared<FILE*>(fp);
+		a.val = fp;
 		return a;
 	}
 
-	atom make_output(FILE *fp) {
+	atom make_output(FILE* fp) {
 		atom a;
 		a.type = T_OUTPUT;
-		a.p = std::make_shared<FILE *>(fp);
+		a.val = fp;
 		return a;
 	}
 
 	atom make_char(char c) {
 		atom a;
 		a.type = T_CHAR;
-		a.p = std::make_shared<char>(c);
+		a.val = c;
 		return a;
 	}
 
-	void print_expr(const atom &a)
+	void print_expr(const atom& a)
 	{
 		std::cout << to_string(a, 1);
 	}
 
-	void pr(const atom &a)
+	void pr(const atom& a)
 	{
 		std::cout << to_string(a, 0);
 	}
 
-	error lex(const char *str, const char **start, const char **end)
+	error lex(const char* str, const char** start, const char** end)
 	{
-		const char *ws = " \t\r\n";
-		const char *delim = "()[] \t\r\n;";
-		const char *prefix = "()[]'`";
+		const char* ws = " \t\r\n";
+		const char* delim = "()[] \t\r\n;";
+		const char* prefix = "()[]'`";
 	start:
 		str += strspn(str, ws);
 
@@ -202,9 +203,9 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error parse_simple(const char *start, const char *end, atom *result)
+	error parse_simple(const char* start, const char* end, atom* result)
 	{
-		char *p;
+		char* p;
 
 		/* Is it a number? */
 		double val = strtod(start, &p);
@@ -215,9 +216,9 @@ namespace arc {
 		else if (start[0] == '"') { /* "string" */
 			result->type = T_STRING;
 			size_t length = end - start - 2;
-			char *buf = (char*)malloc(length + 1);
-			const char *ps = start + 1;
-			char *pt = buf;
+			char* buf = (char*)malloc(length + 1);
+			const char* ps = start + 1;
+			char* pt = buf;
 			while (ps < end - 1) {
 				if (*ps == '\\') {
 					char c_next = *(ps + 1);
@@ -243,13 +244,13 @@ namespace arc {
 				pt++;
 			}
 			*pt = 0;
-			buf = (char *)realloc(buf, pt - buf + 1);
+			buf = (char*)realloc(buf, pt - buf + 1);
 			*result = make_string(buf);
 			free(buf);
 			return ERROR_OK;
 		}
 		else if (start[0] == '#') { /* #\char */
-			char *buf = (char *)malloc(end - start + 1);
+			char* buf = (char*)malloc(end - start + 1);
 			memcpy(buf, start, end - start);
 			buf[end - start] = 0;
 			size_t length = end - start;
@@ -281,7 +282,7 @@ namespace arc {
 		}
 
 		/* NIL or symbol */
-		char *buf = (char *)malloc(end - start + 1);
+		char* buf = (char*)malloc(end - start + 1);
 		memcpy(buf, start, end - start);
 		buf[end - start] = 0;
 
@@ -369,7 +370,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error read_list(const char *start, const char **end, atom *result)
+	error read_list(const char* start, const char** end, atom* result)
 	{
 		atom p;
 
@@ -377,7 +378,7 @@ namespace arc {
 		p = *result = nil;
 
 		for (;;) {
-			const char *token;
+			const char* token;
 			atom item;
 			error err;
 
@@ -423,7 +424,7 @@ namespace arc {
 	}
 
 	/* [...] => (fn (_) (...)) */
-	error read_bracket(const char *start, const char **end, atom *result)
+	error read_bracket(const char* start, const char** end, atom* result)
 	{
 		atom p;
 
@@ -440,7 +441,7 @@ namespace arc {
 		atom body = nil;
 
 		for (;;) {
-			const char *token;
+			const char* token;
 			atom item;
 			error err;
 
@@ -465,9 +466,9 @@ namespace arc {
 		}
 	}
 
-	error read_expr(const char *input, const char **end, atom *result)
+	error read_expr(const char* input, const char** end, atom* result)
 	{
-		const char *token;
+		const char* token;
 		error err;
 
 		err = lex(input, &token, end);
@@ -503,24 +504,24 @@ namespace arc {
 	}
 
 #ifndef READLINE
-	char *readline(const char *prompt) {
+	char* readline(const char* prompt) {
 		return readline_fp(prompt, stdin);
 	}
 #endif /* READLINE */
 
-	char *readline_fp(const char *prompt, FILE *fp) {
+	char* readline_fp(const char* prompt, FILE* fp) {
 		size_t size = 80;
 		/* The size is extended by the input with the value of the provisional */
-		char *str;
+		char* str;
 		int ch;
 		size_t len = 0;
 		printf("%s", prompt);
-		str = (char *) malloc(sizeof(char)* size); /* size is start size */
+		str = (char*)malloc(sizeof(char) * size); /* size is start size */
 		if (!str) return NULL;
 		while (EOF != (ch = fgetc(fp)) && ch != '\n') {
 			str[len++] = ch;
 			if (len == size) {
-				char *p = (char *) realloc(str, sizeof(char)*(size *= 2));
+				char* p = (char*)realloc(str, sizeof(char) * (size *= 2));
 				if (!p) {
 					free(str);
 					return NULL;
@@ -534,13 +535,13 @@ namespace arc {
 		}
 		str[len++] = '\0';
 
-		return (char *) realloc(str, sizeof(char)*len);
+		return (char*)realloc(str, sizeof(char) * len);
 	}
 
-	error env_get(std::shared_ptr<struct env> env, std::string *symbol, atom *result)
+	error env_get(std::shared_ptr<struct env> env, std::string* symbol, atom* result)
 	{
 		while (1) {
-			auto &tbl = env->table;
+			auto& tbl = env->table;
 			auto found = tbl.find(symbol);
 			if (found != tbl.end()) {
 				*result = found->second;
@@ -554,21 +555,21 @@ namespace arc {
 		}
 	}
 
-	error env_assign(const std::shared_ptr<struct env> &env, std::string *symbol, atom value) {
-		auto &tbl = env->table;
+	error env_assign(const std::shared_ptr<struct env>& env, std::string* symbol, atom value) {
+		auto& tbl = env->table;
 		tbl[symbol] = value;
 		return ERROR_OK;
 	}
 
-	error env_assign_eq(std::shared_ptr<struct env> env, std::string *symbol, atom value) {
+	error env_assign_eq(std::shared_ptr<struct env> env, std::string* symbol, atom value) {
 		while (1) {
-			auto &tbl = env->table;
+			auto& tbl = env->table;
 			auto found = tbl.find(symbol);
 			if (found != tbl.end()) {
 				found->second = value;
 				return ERROR_OK;
 			}
-			auto &parent = env->parent;
+			auto& parent = env->parent;
 			if (parent == nullptr) {
 				return env_assign(env, symbol, value);
 			}
@@ -623,7 +624,7 @@ namespace arc {
 		return a;
 	}
 
-	error destructuring_bind(atom arg_name, atom val, int val_unspecified, const std::shared_ptr<struct env> &env) {
+	error destructuring_bind(atom arg_name, atom val, int val_unspecified, const std::shared_ptr<struct env>& env) {
 		if (no(arg_name)) {
 			if (no(val))
 				return ERROR_OK;
@@ -632,7 +633,7 @@ namespace arc {
 			}
 		}
 		else if (arg_name.type == T_SYM) {
-			return env_assign(env, arg_name.as<std::string *>(), val);
+			return env_assign(env, std::get<sym>(arg_name.val), val);
 		}
 		else if (arg_name.type == T_CONS) {
 			if (is(car(arg_name), sym_o)) { /* (o ARG [DEFAULT]) */
@@ -644,7 +645,7 @@ namespace arc {
 						}
 					}
 				}
-				return env_assign(env, car(cdr(arg_name)).as<std::string *>(), val);
+				return env_assign(env, std::get<sym>(car(cdr(arg_name)).val), val);
 			}
 			else {
 				if (val.type != T_CONS) {
@@ -662,11 +663,11 @@ namespace arc {
 		}
 	}
 
-	error env_bind(const std::shared_ptr<struct env> &env, atom arg_names, const std::vector<atom> &vargs) {
+	error env_bind(const std::shared_ptr<struct env>& env, atom arg_names, const std::vector<atom>& vargs) {
 		size_t i = 0;
 		while (!no(arg_names)) {
 			if (arg_names.type == T_SYM) {
-				env_assign(env, arg_names.as<std::string *>(), vector_to_atom(vargs, i));
+				env_assign(env, std::get<sym>(arg_names.val), vector_to_atom(vargs, i));
 				i = vargs.size();
 				break;
 			}
@@ -691,12 +692,12 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error apply(const atom &fn, const std::vector<atom> &vargs, atom *result)
+	error apply(const atom& fn, const std::vector<atom>& vargs, atom* result)
 	{
 		if (fn.type == T_BUILTIN)
-			return fn.as<builtin>()(vargs, result);
+			return std::get<builtin>(fn.val)(vargs, result);
 		else if (fn.type == T_CLOSURE) {
-			struct closure cls = fn.as<struct closure>();
+			struct closure cls = *std::get<std::shared_ptr<struct closure>>(fn.val);
 			std::shared_ptr<struct env> env = std::make_shared<struct env>(cls.parent_env);
 			atom arg_names = cls.args;
 			atom body = cls.body;
@@ -718,17 +719,17 @@ namespace arc {
 		else if (fn.type == T_CONTINUATION) {
 			if (vargs.size() != 1) return ERROR_ARGS;
 			thrown = vargs[0];
-			longjmp(*fn.as<jmp_buf *>(), 1);
+			longjmp(*std::get<jmp_buf*>(fn.val), 1);
 		}
 		else if (fn.type == T_STRING) { /* implicit indexing for string */
 			if (vargs.size() != 1) return ERROR_ARGS;
-			long index = (long)(vargs[0]).as<double>();
-			*result = make_char(fn.as<std::string>()[index]);
+			long index = (long)(std::get<double>(vargs[0].val));
+			*result = make_char(fn.asp<string>()[index]);
 			return ERROR_OK;
 		}
 		else if (fn.type == T_CONS && listp(fn)) { /* implicit indexing for list */
 			if (vargs.size() != 1) return ERROR_ARGS;
-			long index = (long)(vargs[0]).as<double>();
+			long index = (long)(std::get<double>(vargs[0].val));
 			atom a = fn;
 			long i;
 			for (i = 0; i < index; i++) {
@@ -745,7 +746,7 @@ namespace arc {
 			long len1 = vargs.size();
 			if (len1 != 1 && len1 != 2) return ERROR_ARGS;
 			atom key = vargs[0];
-			auto &tbl = fn.as<table>();
+			auto& tbl = *std::get<std::shared_ptr<table>>(fn.val);
 			auto found = tbl.find(key);
 			if (found != tbl.end()) {
 				*result = found->second;
@@ -764,7 +765,7 @@ namespace arc {
 	}
 
 	/* start builtin */
-	error builtin_car(const std::vector<atom> &vargs, atom *result)
+	error builtin_car(const std::vector<atom>& vargs, atom* result)
 	{
 		if (vargs.size() != 1)
 			return ERROR_ARGS;
@@ -780,7 +781,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error builtin_cdr(const std::vector<atom> &vargs, atom *result)
+	error builtin_cdr(const std::vector<atom>& vargs, atom* result)
 	{
 		if (vargs.size() != 1)
 			return ERROR_ARGS;
@@ -796,7 +797,7 @@ namespace arc {
 		return ERROR_OK;
 	}
 
-	error builtin_cons(const std::vector<atom> &vargs, atom *result)
+	error builtin_cons(const std::vector<atom>& vargs, atom* result)
 	{
 		if (vargs.size() != 2)
 			return ERROR_ARGS;
@@ -826,18 +827,18 @@ namespace arc {
 + args
 Addition. This operator also performs string and list concatenation.
 	*/
-	error builtin_add(const std::vector<atom> &vargs, atom *result)
+	error builtin_add(const std::vector<atom>& vargs, atom* result)
 	{
 		if (vargs.size() == 0) {
 			*result = make_number(0);
 		}
 		else {
 			if (vargs[0].type == T_NUM) {
-				double r = vargs[0].as<double>();
+				double r = std::get<double>(vargs[0].val);
 				size_t i;
 				for (i = 1; i < vargs.size(); i++) {
 					if (vargs[i].type != T_NUM) return ERROR_TYPE;
-					r += vargs[i].as<double>();
+					r += std::get<double>(vargs[i].val);
 				}
 				*result = make_number(r);
 			}
@@ -862,7 +863,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_subtract(const std::vector<atom> &vargs, atom *result)
+	error builtin_subtract(const std::vector<atom>& vargs, atom* result)
 	{
 		if (vargs.size() == 0) { /* 0 argument */
 			*result = make_number(0);
@@ -870,32 +871,32 @@ Addition. This operator also performs string and list concatenation.
 		}
 		if (vargs[0].type != T_NUM) return ERROR_TYPE;
 		if (vargs.size() == 1) { /* 1 argument */
-			*result = make_number(-vargs[0].as<double>());
+			*result = make_number(-std::get<double>(vargs[0].val));
 			return ERROR_OK;
 		}
-		double r = vargs[0].as<double>();
+		double r = std::get<double>(vargs[0].val);
 		size_t i;
 		for (i = 1; i < vargs.size(); i++) {
 			if (vargs[i].type != T_NUM) return ERROR_TYPE;
-			r -= vargs[i].as<double>();
+			r -= std::get<double>(vargs[i].val);
 		}
 		*result = make_number(r);
 		return ERROR_OK;
 	}
 
-	error builtin_multiply(const std::vector<atom> &vargs, atom *result)
+	error builtin_multiply(const std::vector<atom>& vargs, atom* result)
 	{
 		double r = 1;
 		size_t i;
 		for (i = 0; i < vargs.size(); i++) {
 			if (vargs[i].type != T_NUM) return ERROR_TYPE;
-			r *= vargs[i].as<double>();
+			r *= std::get<double>(vargs[i].val);
 		}
 		*result = make_number(r);
 		return ERROR_OK;
 	}
 
-	error builtin_divide(const std::vector<atom> &vargs, atom *result)
+	error builtin_divide(const std::vector<atom>& vargs, atom* result)
 	{
 		if (vargs.size() == 0) { /* 0 argument */
 			*result = make_number(1);
@@ -903,20 +904,20 @@ Addition. This operator also performs string and list concatenation.
 		}
 		if (vargs[0].type != T_NUM) return ERROR_TYPE;
 		if (vargs.size() == 1) { /* 1 argument */
-			*result = make_number(1.0 / vargs[0].as<double>());
+			*result = make_number(1.0 / std::get<double>(vargs[0].val));
 			return ERROR_OK;
 		}
-		double r = vargs[0].as<double>();
+		double r = std::get<double>(vargs[0].val);
 		size_t i;
 		for (i = 1; i < vargs.size(); i++) {
 			if (vargs[i].type != T_NUM) return ERROR_TYPE;
-			r /= vargs[i].as<double>();
+			r /= std::get<double>(vargs[i].val);
 		}
 		*result = make_number(r);
 		return ERROR_OK;
 	}
 
-	error builtin_less(const std::vector<atom> &vargs, atom *result)
+	error builtin_less(const std::vector<atom>& vargs, atom* result)
 	{
 		if (vargs.size() <= 1) {
 			*result = sym_t;
@@ -926,7 +927,7 @@ Addition. This operator also performs string and list concatenation.
 		switch (vargs[0].type) {
 		case T_NUM:
 			for (i = 0; i < vargs.size() - 1; i++) {
-				if (vargs[i].as<double>() >= vargs[i + 1].as<double>()) {
+				if (std::get<double>(vargs[i].val) >= std::get<double>(vargs[i + 1].val)) {
 					*result = nil;
 					return ERROR_OK;
 				}
@@ -935,7 +936,7 @@ Addition. This operator also performs string and list concatenation.
 			return ERROR_OK;
 		case T_STRING:
 			for (i = 0; i < vargs.size() - 1; i++) {
-				if (vargs[i].as<std::string>() >= vargs[i + 1].as<std::string>()) {
+				if (vargs[i].asp<string>() >= vargs[i + 1].asp<string>()) {
 					*result = nil;
 					return ERROR_OK;
 				}
@@ -947,7 +948,7 @@ Addition. This operator also performs string and list concatenation.
 		}
 	}
 
-	error builtin_greater(const std::vector<atom> &vargs, atom *result)
+	error builtin_greater(const std::vector<atom>& vargs, atom* result)
 	{
 		if (vargs.size() <= 1) {
 			*result = sym_t;
@@ -957,7 +958,7 @@ Addition. This operator also performs string and list concatenation.
 		switch (vargs[0].type) {
 		case T_NUM:
 			for (i = 0; i < vargs.size() - 1; i++) {
-				if (vargs[i].as<double>() <= vargs[i + 1].as<double>()) {
+				if (std::get<double>(vargs[i].val) <= std::get<double>(vargs[i + 1].val)) {
 					*result = nil;
 					return ERROR_OK;
 				}
@@ -966,7 +967,7 @@ Addition. This operator also performs string and list concatenation.
 			return ERROR_OK;
 		case T_STRING:
 			for (i = 0; i < vargs.size() - 1; i++) {
-				if (vargs[i].as<std::string>() <= vargs[i + 1].as<std::string>()) {
+				if (vargs[i].asp<string>() <= vargs[i + 1].asp<string>()) {
 					*result = nil;
 					return ERROR_OK;
 				}
@@ -978,7 +979,7 @@ Addition. This operator also performs string and list concatenation.
 		}
 	}
 
-	error builtin_apply(const std::vector<atom> &vargs, atom *result)
+	error builtin_apply(const std::vector<atom>& vargs, atom* result)
 	{
 		atom fn;
 
@@ -990,51 +991,52 @@ Addition. This operator also performs string and list concatenation.
 		return apply(fn, v, result);
 	}
 
-	bool is(const atom &a, const atom &b) {
+	bool is(const atom& a, const atom& b) {
 		if (a.type == b.type) {
 			switch (a.type) {
 			case T_NIL:
 				return true;
 			case T_CONS:
+				return get<shared_ptr<struct cons>>(a.val) == get<shared_ptr<struct cons>>(b.val); // compare pointers
 			case T_CLOSURE:
 			case T_MACRO:
-				return a.p == b.p; // compare pointers
+				return get<shared_ptr<struct closure>>(a.val) == get<shared_ptr<struct closure>>(b.val); // compare pointers
 			case T_BUILTIN:
-				return a.as<builtin>() == b.as<builtin>();
+				return get<builtin>(a.val) == get<builtin>(b.val);
 			case T_SYM:
-				return (a.as<std::string *>()) == (b.as<std::string *>());
+				return get<sym>(a.val) == get<sym>(b.val);
 			case T_NUM:
-				return (a.as<double>()) == (b.as<double>());
+				return get<double>(a.val) == get<double>(b.val);
 			case T_STRING:
-				return a.as<std::string>() == b.as<std::string>();
+				return a.asp<string>() == b.asp<string>();
 			case T_CHAR:
-				return a.as<char>() == b.as<char>();
+				return get<char>(a.val) == get<char>(b.val);
 			case T_TABLE:
-				return a.as<table>() == b.as<table>();
+				return get<shared_ptr<table>>(a.val) == get<shared_ptr<table>>(b.val); // compare pointers
 			case T_INPUT:
 			case T_INPUT_PIPE:
 			case T_OUTPUT:
-				return a.as<FILE *>() == b.as<FILE *>();
+				return get<FILE*>(a.val) == get<FILE*>(b.val);
 			case T_CONTINUATION:
-				return a.as<jmp_buf *>() == b.as<jmp_buf *>();
+				return get<jmp_buf*>(a.val) == get<jmp_buf*>(b.val);
 			}
 		}
 		return false;
 	}
 
-	bool iso(const atom &a, const atom &b) {
+	bool iso(const atom& a, const atom& b) {
 		if (a.type == b.type) {
 			switch (a.type) {
 			case T_CONS:
-				return iso(a.as<cons>().car, b.as<cons>().car) && iso(a.as<cons>().cdr, b.as<cons>().cdr);
+				return iso(car(a), car(b)) && iso(cdr(a), cdr(b));
 			default:
 				return is(a, b);
 			}
 		}
 		return 0;
 	}
-	
-	error builtin_is(const std::vector<atom> &vargs, atom *result)
+
+	error builtin_is(const std::vector<atom>& vargs, atom* result)
 	{
 		atom a, b;
 		if (vargs.size() <= 1) {
@@ -1054,37 +1056,37 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_scar(const std::vector<atom> &vargs, atom *result) {
+	error builtin_scar(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom place = vargs[0], value;
 		if (place.type != T_CONS) return ERROR_TYPE;
 		value = vargs[1];
-		place.as<cons>().car = value;
+		car(place) = value;
 		*result = value;
 		return ERROR_OK;
 	}
 
-	error builtin_scdr(const std::vector<atom> &vargs, atom *result) {
+	error builtin_scdr(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom place = vargs[0], value;
 		if (place.type != T_CONS) return ERROR_TYPE;
 		value = vargs[1];
-		place.as<cons>().cdr = value;
+		cdr(place) = value;
 		*result = value;
 		return ERROR_OK;
 	}
 
-	error builtin_mod(const std::vector<atom> &vargs, atom *result) {
+	error builtin_mod(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom dividend = vargs[0];
 		atom divisor = vargs[1];
-		double r = fmod(dividend.as<double>(), divisor.as<double>());
-		if (dividend.as<double>() * divisor.as<double>() < 0 && r != 0) r += divisor.as<double>();
+		double r = fmod(get<double>(dividend.val), get<double>(divisor.val));
+		if (get<double>(dividend.val) * get<double>(divisor.val) < 0 && r != 0) r += get<double>(divisor.val);
 		*result = make_number(r);
 		return ERROR_OK;
 	}
 
-	error builtin_type(const std::vector<atom> &vargs, atom *result) {
+	error builtin_type(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom x = vargs[0];
 		switch (x.type) {
@@ -1109,22 +1111,22 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* string-sref obj value index */
-	error builtin_string_sref(const std::vector<atom> &vargs, atom *result) {
+	error builtin_string_sref(const std::vector<atom>& vargs, atom* result) {
 		atom index, obj, value;
 		if (vargs.size() != 3) return ERROR_ARGS;
 		obj = vargs[0];
 		if (obj.type != T_STRING) return ERROR_TYPE;
 		value = vargs[1];
 		index = vargs[2];
-		obj.as<std::string>()[(long)index.as<double>()] = value.as<char>();
-		*result = make_char(value.as<char>());
+		obj.asp<string>()[(long)get<double>(index.val)] = get<char>(value.val);
+		*result = make_char(get<char>(value.val));
 		return ERROR_OK;
 	}
 
 	/* disp [arg [output-port]] */
-	error builtin_disp(const std::vector<atom> &vargs, atom *result) {
+	error builtin_disp(const std::vector<atom>& vargs, atom* result) {
 		long l = vargs.size();
-		FILE *fp;
+		FILE* fp;
 		switch (l) {
 		case 0:
 			*result = nil;
@@ -1133,7 +1135,7 @@ Addition. This operator also performs string and list concatenation.
 			fp = stdout;
 			break;
 		case 2:
-			fp = vargs[1].as<FILE *>();
+			fp = get<FILE*>(vargs[1].val);
 			break;
 		default:
 			return ERROR_ARGS;
@@ -1143,58 +1145,58 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_writeb(const std::vector<atom> &vargs, atom *result) {
+	error builtin_writeb(const std::vector<atom>& vargs, atom* result) {
 		long l = vargs.size();
-		FILE *fp;
+		FILE* fp;
 		switch (l) {
 		case 0: return ERROR_ARGS;
 		case 1:
 			fp = stdout;
 			break;
 		case 2:
-			fp = vargs[1].as<FILE *>();
+			fp = get<FILE*>(vargs[1].val);
 			break;
 		default: return ERROR_ARGS;
 		}
-		fputc((int)vargs[0].as<double>(), fp);
+		fputc((int)std::get<double>(vargs[0].val), fp);
 		*result = nil;
 		return ERROR_OK;
 	}
 
-	error builtin_expt(const std::vector<atom> &vargs, atom *result) {
+	error builtin_expt(const std::vector<atom>& vargs, atom* result) {
 		atom a, b;
 		if (vargs.size() != 2) return ERROR_ARGS;
 		a = vargs[0];
 		b = vargs[1];
-		*result = make_number(pow(a.as<double>(), b.as<double>()));
+		*result = make_number(pow(get<double>(a.val), get<double>(b.val)));
 		return ERROR_OK;
 	}
 
-	error builtin_log(const std::vector<atom> &vargs, atom *result) {
+	error builtin_log(const std::vector<atom>& vargs, atom* result) {
 		atom a;
 		if (vargs.size() != 1) return ERROR_ARGS;
 		a = vargs[0];
-		*result = make_number(log(a.as<double>()));
+		*result = make_number(log(get<double>(a.val)));
 		return ERROR_OK;
 	}
 
-	error builtin_sqrt(const std::vector<atom> &vargs, atom *result) {
+	error builtin_sqrt(const std::vector<atom>& vargs, atom* result) {
 		atom a;
 		if (vargs.size() != 1) return ERROR_ARGS;
 		a = vargs[0];
-		*result = make_number(sqrt(a.as<double>()));
+		*result = make_number(sqrt(get<double>(a.val)));
 		return ERROR_OK;
 	}
 
-	error builtin_readline(const std::vector<atom> &vargs, atom *result) {
+	error builtin_readline(const std::vector<atom>& vargs, atom* result) {
 		long l = vargs.size();
-		char *str;
+		char* str;
 		if (l == 0) {
 			str = readline("");
 		}
 		else if (l == 1) {
 			if (vargs[0].type != T_INPUT && vargs[0].type != T_INPUT_PIPE) return ERROR_TYPE;
-			str = readline_fp("", vargs[0].as<FILE *>());
+			str = readline_fp("", get<FILE*>(vargs[0].val));
 		}
 		else {
 			return ERROR_ARGS;
@@ -1203,7 +1205,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_quit(const std::vector<atom> &vargs, atom *result) {
+	error builtin_quit(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 0) return ERROR_ARGS;
 		exit(0);
 	}
@@ -1212,24 +1214,24 @@ Addition. This operator also performs string and list concatenation.
 		return (double)rand() / ((double)RAND_MAX + 1.0);
 	}
 
-	error builtin_rand(const std::vector<atom> &vargs, atom *result) {
+	error builtin_rand(const std::vector<atom>& vargs, atom* result) {
 		long alen = vargs.size();
 		if (alen == 0) *result = make_number(rand_double());
-		else if (alen == 1) *result = make_number(floor(rand_double() * vargs[0].as<double>()));
+		else if (alen == 1) *result = make_number(floor(rand_double() * std::get<double>(vargs[0].val)));
 		else return ERROR_ARGS;
 		return ERROR_OK;
 	}
 
-	error read_fp(FILE *fp, atom *result) {
-		char *s = readline_fp("", fp);
+	error read_fp(FILE* fp, atom* result) {
+		char* s = readline_fp("", fp);
 		if (s == NULL) return ERROR_FILE;
-		const char *buf = s;
+		const char* buf = s;
 		error err = read_expr(buf, &buf, result);
 
 		/* bring back remaining expressions so that "(read) (read)" works */
 		if (buf) {
 			if (*buf) ungetc('\n', fp);
-			const char *b0 = buf;
+			const char* b0 = buf;
 			for (; *buf; buf++) {
 			}
 			for (buf--; buf >= b0; buf--) {
@@ -1242,7 +1244,7 @@ Addition. This operator also performs string and list concatenation.
 
 	/* read [input-source [eof]]
 	   Reads a S-expression from the input-source, which can be either a string or an input-port. If the end of file is reached, nil is returned or the specified eof value. */
-	error builtin_read(const std::vector<atom> &vargs, atom *result) {
+	error builtin_read(const std::vector<atom>& vargs, atom* result) {
 		size_t alen = vargs.size();
 		error err;
 		if (alen == 0) {
@@ -1251,12 +1253,12 @@ Addition. This operator also performs string and list concatenation.
 		else if (alen <= 2) {
 			atom src = vargs[0];
 			if (src.type == T_STRING) {
-				const char *s = src.as<std::string>().c_str();
-				const char *buf = s;
+				const char* s = src.asp<string>().c_str();
+				const char* buf = s;
 				err = read_expr(buf, &buf, result);
 			}
 			else if (src.type == T_INPUT || src.type == T_INPUT_PIPE) {
-				err = read_fp(src.as<FILE *>(), result);
+				err = read_fp(get<FILE*>(src.val), result);
 			}
 			else {
 				return ERROR_TYPE;
@@ -1280,7 +1282,7 @@ Addition. This operator also performs string and list concatenation.
 		}
 	}
 
-	error builtin_macex(const std::vector<atom> &vargs, atom *result) {
+	error builtin_macex(const std::vector<atom>& vargs, atom* result) {
 		long alen = vargs.size();
 		if (alen == 1) {
 			error err = macex(vargs[0], result);
@@ -1290,7 +1292,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_string(const std::vector<atom> &vargs, atom *result) {
+	error builtin_string(const std::vector<atom>& vargs, atom* result) {
 		std::string s;
 		size_t i;
 		for (i = 0; i < vargs.size(); i++) {
@@ -1300,7 +1302,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_sym(const std::vector<atom> &vargs, atom *result) {
+	error builtin_sym(const std::vector<atom>& vargs, atom* result) {
 		long alen = vargs.size();
 		if (alen == 1) {
 			*result = make_sym(to_string(vargs[0], 0));
@@ -1309,47 +1311,47 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_system(const std::vector<atom> &vargs, atom *result) {
+	error builtin_system(const std::vector<atom>& vargs, atom* result) {
 		long alen = vargs.size();
 		if (alen == 1) {
 			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
-			*result = make_number(system(vargs[0].as<std::string>().c_str()));
+			*result = make_number(system(vargs[0].asp<string>().c_str()));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_eval(const std::vector<atom> &vargs, atom *result) {
+	error builtin_eval(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) return macex_eval(vargs[0], result);
 		else return ERROR_ARGS;
 	}
 
-	error builtin_load(const std::vector<atom> &vargs, atom *result) {
+	error builtin_load(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
 			*result = nil;
-			return arc_load_file(a.as<std::string>().c_str());
+			return arc_load_file(a.asp<string>().c_str());
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_int(const std::vector<atom> &vargs, atom *result) {
+	error builtin_int(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			switch (a.type) {
 			case T_STRING:
-				*result = make_number(atol(a.as<std::string>().c_str()));
+				*result = make_number(atol(a.asp<string>().c_str()));
 				break;
 			case T_SYM:
-				*result = make_number(atol(a.as<std::string *>()->c_str()));
+				*result = make_number(atol(get<std::string*>(a.val)->c_str()));
 				break;
 			case T_NUM:
-				*result = make_number((long)(a.as<double>()));
+				*result = make_number((long)(get<double>(a.val)));
 				break;
 			case T_CHAR:
-				*result = make_number(a.as<char>());
+				*result = make_number(get<char>(a.val));
 				break;
 			default:
 				return ERROR_TYPE;
@@ -1359,73 +1361,73 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_trunc(const std::vector<atom> &vargs, atom *result) {
+	error builtin_trunc(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
-			*result = make_number(trunc(a.as<double>()));
+			*result = make_number(trunc(get<double>(a.val)));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_sin(const std::vector<atom> &vargs, atom *result) {
+	error builtin_sin(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
-			*result = make_number(sin(a.as<double>()));
+			*result = make_number(sin(get<double>(a.val)));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_cos(const std::vector<atom> &vargs, atom *result) {
+	error builtin_cos(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
-			*result = make_number(cos(a.as<double>()));
+			*result = make_number(cos(get<double>(a.val)));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_tan(const std::vector<atom> &vargs, atom *result) {
+	error builtin_tan(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_NUM) return ERROR_TYPE;
-			*result = make_number(tan(a.as<double>()));
+			*result = make_number(tan(get<double>(a.val)));
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_bound(const std::vector<atom> &vargs, atom *result) {
+	error builtin_bound(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_SYM) return ERROR_TYPE;
-			error err = env_get(global_env, a.as<std::string *>(), result);
+			error err = env_get(global_env, get<std::string*>(a.val), result);
 			*result = (err ? nil : sym_t);
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_infile(const std::vector<atom> &vargs, atom *result) {
+	error builtin_infile(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
-			FILE *fp = fopen(a.as<std::string>().c_str(), "r");
+			FILE* fp = fopen(a.asp<string>().c_str(), "r");
 			*result = make_input(fp);
 			return ERROR_OK;
 		}
 		else return ERROR_ARGS;
 	}
 
-	error builtin_outfile(const std::vector<atom> &vargs, atom *result) {
+	error builtin_outfile(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 1) {
 			atom a = vargs[0];
 			if (a.type != T_STRING) return ERROR_TYPE;
-			FILE *fp = fopen(a.as<std::string>().c_str(), "w");
+			FILE* fp = fopen(a.asp<string>().c_str(), "w");
 			*result = make_output(fp);
 			return ERROR_OK;
 		}
@@ -1433,14 +1435,14 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* close port ... */
-	error builtin_close(const std::vector<atom> &vargs, atom *result) {
+	error builtin_close(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() >= 1) {
 			for (atom a : vargs) {
 				if (a.type != T_INPUT && a.type != T_INPUT_PIPE && a.type != T_OUTPUT) return ERROR_TYPE;
 				if (a.type == T_INPUT_PIPE)
-					pclose(a.as<FILE*>());
+					pclose(get<FILE*>(a.val));
 				else
-					fclose(a.as<FILE*>());
+					fclose(get<FILE*>(a.val));
 			}
 			*result = nil;
 			return ERROR_OK;
@@ -1448,15 +1450,15 @@ Addition. This operator also performs string and list concatenation.
 		else return ERROR_ARGS;
 	}
 
-	error builtin_readb(const std::vector<atom> &vargs, atom *result) {
+	error builtin_readb(const std::vector<atom>& vargs, atom* result) {
 		long l = vargs.size();
-		FILE *fp;
+		FILE* fp;
 		switch (l) {
 		case 0:
 			fp = stdin;
 			break;
 		case 1:
-			fp = vargs[0].as<FILE *>();
+			fp = get<FILE*>(vargs[0].val);
 			break;
 		default:
 			return ERROR_ARGS;
@@ -1466,25 +1468,25 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* sread input-port eof */
-	error builtin_sread(const std::vector<atom> &vargs, atom *result) {
+	error builtin_sread(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
-		FILE *fp = vargs[0].as<FILE *>();
+		FILE* fp = get<FILE*>(vargs[0].val);
 		atom eof = vargs[1];
 		error err;
 		if (feof(fp)) {
 			*result = eof;
 			return ERROR_OK;
 		}
-		char *s = slurp_fp(fp);
-		const char *p = s;
+		char* s = slurp_fp(fp);
+		const char* p = s;
 		err = read_expr(p, &p, result);
 		return err;
 	}
 
 	/* write [arg [output-port]] */
-	error builtin_write(const std::vector<atom> &vargs, atom *result) {
+	error builtin_write(const std::vector<atom>& vargs, atom* result) {
 		long l = vargs.size();
-		FILE *fp;
+		FILE* fp;
 		switch (l) {
 		case 0:
 			*result = nil;
@@ -1493,7 +1495,7 @@ Addition. This operator also performs string and list concatenation.
 			fp = stdout;
 			break;
 		case 2:
-			fp = vargs[1].as<FILE *>();
+			fp = get<FILE*>(vargs[1].val);
 			break;
 		default:
 			return ERROR_ARGS;
@@ -1508,20 +1510,20 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* newstring length [char] */
-	error builtin_newstring(const std::vector<atom> &vargs, atom *result) {
+	error builtin_newstring(const std::vector<atom>& vargs, atom* result) {
 		long arg_len = vargs.size();
-		long length = (long)vargs[0].as<double>();
+		long length = (long)std::get<double>(vargs[0].val);
 		char c = 0;
-		char *s;
+		char* s;
 		switch (arg_len) {
 		case 1: break;
 		case 2:
-			c = vargs[1].as<char>();
+			c = get<char>(vargs[1].val);
 			break;
 		default:
 			return ERROR_ARGS;
 		}
-		s = (char *)malloc((length + 1) * sizeof(char));
+		s = (char*)malloc((length + 1) * sizeof(char));
 		int i;
 		for (i = 0; i < length; i++)
 			s[i] = c;
@@ -1530,7 +1532,7 @@ Addition. This operator also performs string and list concatenation.
 		return ERROR_OK;
 	}
 
-	error builtin_table(const std::vector<atom> &vargs, atom *result) {
+	error builtin_table(const std::vector<atom>& vargs, atom* result) {
 		long arg_len = vargs.size();
 		if (arg_len != 0) return ERROR_ARGS;
 		*result = make_table();
@@ -1538,15 +1540,15 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* maptable proc table */
-	error builtin_maptable(const std::vector<atom> &vargs, atom *result) {
+	error builtin_maptable(const std::vector<atom>& vargs, atom* result) {
 		long arg_len = vargs.size();
 		if (arg_len != 2) return ERROR_ARGS;
-		const atom &proc = vargs[0];
-		const atom &tbl = vargs[1];
+		const atom& proc = vargs[0];
+		const atom& tbl = vargs[1];
 		if (tbl.type != T_TABLE) return ERROR_TYPE;
-		auto &table1 = tbl.as<table>();
+		auto& table1 = tbl.asp<table>();
 		std::vector<atom> v;
-		for (auto &p : table1) {
+		for (auto& p : table1) {
 			v.clear();
 			v.push_back(p.first);
 			v.push_back(p.second);
@@ -1558,14 +1560,14 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	/* table-sref obj value index */
-	error builtin_table_sref(const std::vector<atom> &vargs, atom *result) {
+	error builtin_table_sref(const std::vector<atom>& vargs, atom* result) {
 		atom index, obj, value;
 		if (vargs.size() != 3) return ERROR_ARGS;
 		obj = vargs[0];
 		if (obj.type != T_TABLE) return ERROR_TYPE;
 		value = vargs[1];
 		index = vargs[2];
-		obj.as<table>()[index] = value;
+		obj.asp<table>()[index] = value;
 		*result = value;
 		return ERROR_OK;
 	}
@@ -1579,23 +1581,23 @@ A string can be coerced to sym, cons (char list), num, or int.
 A list of characters can be coerced to a string.
 A symbol can be coerced to a string.
 	*/
-	error builtin_coerce(const std::vector<atom> &vargs, atom *result) {
+	error builtin_coerce(const std::vector<atom>& vargs, atom* result) {
 		atom obj, type;
 		if (vargs.size() != 2) return ERROR_ARGS;
 		obj = vargs[0];
 		type = vargs[1];
 		switch (obj.type) {
 		case T_CHAR:
-			if (is(type, sym_int) || is(type, sym_num)) *result = make_number(obj.as<char>());
+			if (is(type, sym_int) || is(type, sym_num)) *result = make_number(get<char>(obj.val));
 			else if (is(type, sym_string)) {
 				char buf[2];
-				buf[0] = obj.as<char>();
+				buf[0] = get<char>(obj.val);
 				buf[1] = '\0';
 				*result = make_string(buf);
 			}
 			else if (is(type, sym_sym)) {
 				char buf[2];
-				buf[0] = obj.as<char>();
+				buf[0] = get<char>(obj.val);
 				buf[1] = '\0';
 				*result = make_sym(buf);
 			}
@@ -1605,8 +1607,8 @@ A symbol can be coerced to a string.
 				return ERROR_TYPE;
 			break;
 		case T_NUM:
-			if (is(type, sym_int)) *result = make_number(floor(obj.as<double>()));
-			else if (is(type, sym_char)) *result = make_char((char)obj.as<double>());
+			if (is(type, sym_int)) *result = make_number(floor(get<double>(obj.val)));
+			else if (is(type, sym_char)) *result = make_char((char)get<double>(obj.val));
 			else if (is(type, sym_string)) {
 				*result = make_string(to_string(obj, 0));
 			}
@@ -1616,16 +1618,16 @@ A symbol can be coerced to a string.
 				return ERROR_TYPE;
 			break;
 		case T_STRING:
-			if (is(type, sym_sym)) *result = make_sym(obj.as<std::string>().c_str());
+			if (is(type, sym_sym)) *result = make_sym(obj.asp<string>().c_str());
 			else if (is(type, sym_cons)) {
 				*result = nil;
 				int i;
-				for (i = strlen(obj.as<std::string>().c_str()) - 1; i >= 0; i--) {
-					*result = make_cons(make_char(obj.as<std::string>().c_str()[i]), *result);
+				for (i = strlen(obj.asp<string>().c_str()) - 1; i >= 0; i--) {
+					*result = make_cons(make_char(obj.asp<string>().c_str()[i]), *result);
 				}
 			}
-			else if (is(type, sym_num)) *result = make_number(atof(obj.as<std::string>().c_str()));
-			else if (is(type, sym_int)) *result = make_number(atoi(obj.as<std::string>().c_str()));
+			else if (is(type, sym_num)) *result = make_number(atof(obj.asp<string>().c_str()));
+			else if (is(type, sym_int)) *result = make_number(atoi(obj.asp<string>().c_str()));
 			else if (is(type, sym_string))
 				*result = obj;
 			else
@@ -1642,7 +1644,7 @@ A symbol can be coerced to a string.
 					v.push_back(sym_string);
 					error err = builtin_coerce(v, &x);
 					if (err) return err;
-					s += x.as<std::string>();
+					s += x.asp<string>();
 				}
 				*result = make_string(s);
 			}
@@ -1653,7 +1655,7 @@ A symbol can be coerced to a string.
 			break;
 		case T_SYM:
 			if (is(type, sym_string)) {
-				*result = make_string(*obj.as<std::string *>());
+				*result = make_string(*get<std::string*>(obj.val));
 			}
 			else if (is(type, sym_sym))
 				*result = obj;
@@ -1666,14 +1668,14 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 
-	error builtin_flushout(const std::vector<atom> &vargs, atom *result) {
+	error builtin_flushout(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 0) return ERROR_ARGS;
 		fflush(stdout);
 		*result = sym_t;
 		return ERROR_OK;
 	}
 
-	error builtin_err(const std::vector<atom> &vargs, atom *result) {
+	error builtin_err(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() == 0) return ERROR_ARGS;
 		err_expr = nil;
 		size_t i;
@@ -1683,14 +1685,14 @@ A symbol can be coerced to a string.
 		return ERROR_USER;
 	}
 
-	error builtin_len(const std::vector<atom> &vargs, atom *result) {
+	error builtin_len(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type == T_STRING) {
-			*result = make_number(strlen(a.as<std::string>().c_str()));
+			*result = make_number(strlen(a.asp<string>().c_str()));
 		}
 		else if (a.type == T_TABLE) {
-			*result = make_number(a.as<table>().size());
+			*result = make_number(a.asp<table>().size());
 		}
 		else {
 			*result = make_number(len(a));
@@ -1698,14 +1700,14 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 
-	atom make_continuation(jmp_buf *jb) {
+	atom make_continuation(jmp_buf* jb) {
 		atom a;
 		a.type = T_CONTINUATION;
-		a.as<jmp_buf *>() = jb;
+		a.val = jb;
 		return a;
 	}
 
-	error builtin_ccc(const std::vector<atom> &vargs, atom *result) {
+	error builtin_ccc(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_BUILTIN && a.type != T_CLOSURE) return ERROR_TYPE;
@@ -1727,13 +1729,13 @@ A symbol can be coerced to a string.
 		atom b = vargs[1];
 		if (a.type != T_STRING || b.type != T_STRING) return ERROR_TYPE;
 		*result = nil;
-		int r = std::rename(a.as<std::string>().c_str(), b.as<std::string>().c_str());
+		int r = std::rename(a.asp<string>().c_str(), b.asp<string>().c_str());
 		if (r != 0) {
 			return ERROR_FILE;
 		}
 		return ERROR_OK;
 	}
-	
+
 	// rmfile path
 	// Removes the specified file.
 	error builtin_rmfile(const std::vector<atom>& vargs, atom* result) {
@@ -1741,7 +1743,7 @@ A symbol can be coerced to a string.
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
 		*result = nil;
-		int r = std::remove(a.as<std::string>().c_str());
+		int r = std::remove(a.asp<string>().c_str());
 		if (r != 0) {
 			return ERROR_FILE;
 		}
@@ -1754,10 +1756,10 @@ A symbol can be coerced to a string.
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
-		const std::string &path = a.as<std::string>();
+		const std::string& path = a.asp<string>();
 		if (path.length() == 0) return ERROR_FILE;
 		*result = nil;
-		for (auto & p : std::filesystem::directory_iterator(path)) {
+		for (auto& p : std::filesystem::directory_iterator(path)) {
 			*result = make_cons(make_string(p.path().string()), *result);
 		}
 		return ERROR_OK;
@@ -1769,9 +1771,9 @@ A symbol can be coerced to a string.
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
-		const std::string &path = a.as<std::string>();
+		const std::string& path = a.asp<string>();
 		if (path.length() == 0) return ERROR_FILE;
-		
+
 		*result = nil;
 		if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
 			*result = sym_t;
@@ -1785,7 +1787,7 @@ A symbol can be coerced to a string.
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
-		const std::string& path = a.as<std::string>();
+		const std::string& path = a.asp<string>();
 		if (path.length() == 0) return ERROR_FILE;
 
 		*result = nil;
@@ -1801,7 +1803,7 @@ A symbol can be coerced to a string.
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
-		const std::string& path = a.as<std::string>();
+		const std::string& path = a.asp<string>();
 		if (path.length() == 0) return ERROR_FILE;
 
 		*result = nil;
@@ -1816,7 +1818,7 @@ A symbol can be coerced to a string.
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
-		FILE* fp = popen(vargs[0].as<std::string>().c_str(), "r");
+		FILE* fp = popen(vargs[0].asp<string>().c_str(), "r");
 		if (fp == nullptr) return ERROR_FILE;
 		*result = make_input_pipe(fp);
 		return ERROR_OK;
@@ -1865,36 +1867,36 @@ A symbol can be coerced to a string.
 			break;
 		}
 		case T_SYM:
-			s = *a.as<std::string *>();
+			s = *get<std::string*>(a.val);
 			break;
 		case T_STRING:
 			if (write) s += "\"";
-			s += a.as<std::string>();
+			s += a.asp<string>();
 			if (write) s += "\"";
 			break;
 		case T_NUM:
 		{
 			std::stringstream ss;
-			ss << std::setprecision(16) << a.as<double>();
+			ss << std::setprecision(16) << get<double>(a.val);
 			s = ss.str();
 			break;
 		}
 		case T_BUILTIN:
 		{
 			std::stringstream ss;
-			ss << "#<builtin:" << (void *)a.as<builtin>() << ">";
+			ss << "#<builtin:" << (void*)get<builtin>(a.val) << ">";
 			s = ss.str();
 			break;
 		}
 		case T_CLOSURE:
 		{
-			atom a2  = make_cons(sym_fn, make_cons(a.as<struct closure>().args, a.as<struct closure>().body));
+			atom a2 = make_cons(sym_fn, make_cons(a.asp<struct closure>().args, a.asp<struct closure>().body));
 			s = "#<closure>" + to_string(a2, 1);
 			break;
 		}
 		case T_MACRO:
-			s = "#<macro:" + to_string(a.as<struct closure>().args, write) +
-				" " + to_string(a.as<struct closure>().body, write) + ">";
+			s = "#<macro:" + to_string(a.asp<struct closure>().args, write) +
+				" " + to_string(a.asp<struct closure>().body, write) + ">";
 			break;
 		case T_INPUT:
 			s = "#<input>";
@@ -1907,7 +1909,7 @@ A symbol can be coerced to a string.
 			break;
 		case T_TABLE: {
 			s += "#<table:(";
-			for (auto &p : a.as<table>()) {
+			for (auto& p : a.asp<table>()) {
 				s += "(" + to_string(p.first, write) + " . " + to_string(p.second, write) + ")";
 			}
 			s += ")>";
@@ -1915,18 +1917,18 @@ A symbol can be coerced to a string.
 		case T_CHAR:
 			if (write) {
 				s += "#\\";
-				switch (a.as<char>()) {
+				switch (get<char>(a.val)) {
 				case '\0': s += "nul"; break;
 				case '\r': s += "return"; break;
 				case '\n': s += "newline"; break;
 				case '\t': s += "tab"; break;
 				case ' ': s += "space"; break;
 				default:
-					s += a.as<char>();
+					s += get<char>(a.val);
 				}
 			}
 			else {
-				s[0] = a.as<char>();
+				s[0] = get<char>(a.val);
 				s[1] = '\0';
 			}
 			break;
@@ -1943,12 +1945,12 @@ A symbol can be coerced to a string.
 	atom make_table() {
 		atom a;
 		a.type = T_TABLE;
-		a.p = std::make_shared<table>();
+		a.val = std::make_shared<table>();
 		return a;
 	}
 
-	char *slurp_fp(FILE *fp) {
-		char *buf;
+	char* slurp_fp(FILE* fp) {
+		char* buf;
 		size_t len;
 
 		fseek(fp, 0, SEEK_END);
@@ -1956,30 +1958,30 @@ A symbol can be coerced to a string.
 		if (len < 0) return NULL;
 		fseek(fp, 0, SEEK_SET);
 
-		buf = (char *)malloc(len + 1);
+		buf = (char*)malloc(len + 1);
 		if (!buf)
 			return NULL;
 
-    	if (fread(buf, 1, len, fp) != len) return NULL;
+		if (fread(buf, 1, len, fp) != len) return NULL;
 		buf[len] = 0;
 
 		return buf;
 	}
 
-	char *slurp(const char *path)
+	char* slurp(const char* path)
 	{
-		FILE *fp = fopen(path, "rb");
+		FILE* fp = fopen(path, "rb");
 		if (!fp) {
 			/* printf("Reading %s failed.\n", path); */
 			return NULL;
 		}
-		char *r = slurp_fp(fp);
+		char* r = slurp_fp(fp);
 		fclose(fp);
 		return r;
 	}
 
 	/* compile-time macro */
-	error macex(atom expr, atom *result) {
+	error macex(atom expr, atom* result) {
 		error err = ERROR_OK;
 
 		err_expr = expr;
@@ -1992,7 +1994,7 @@ A symbol can be coerced to a string.
 			atom op = car(expr);
 
 			/* Handle quote */
-			if (op.type == T_SYM && op.as<std::string *>() == sym_quote.as<std::string *>()) {
+			if (op.type == T_SYM && get<std::string*>(op.val) == get<sym>(sym_quote.val)) {
 				*result = expr;
 				return ERROR_OK;
 			}
@@ -2000,7 +2002,7 @@ A symbol can be coerced to a string.
 			atom args = cdr(expr);
 
 			/* Is it a macro? */
-			if (op.type == T_SYM && !env_get(global_env, op.as<std::string *>(), result) && result->type == T_MACRO) {
+			if (op.type == T_SYM && !env_get(global_env, get<std::string*>(op.val), result) && result->type == T_MACRO) {
 				/* Evaluate operator */
 				op = *result;
 
@@ -2034,7 +2036,7 @@ A symbol can be coerced to a string.
 		}
 	}
 
-	error macex_eval(atom expr, atom *result) {
+	error macex_eval(atom expr, atom* result) {
 		atom expr2;
 		error err = macex(expr, &expr2);
 		if (err) return err;
@@ -2044,9 +2046,9 @@ A symbol can be coerced to a string.
 		return eval_expr(expr2, global_env, result);
 	}
 
-	error load_string(const char *text) {
+	error load_string(const char* text) {
 		error err = ERROR_OK;
-		const char *p = text;
+		const char* p = text;
 		atom expr;
 		while (*p) {
 			if (isspace(*p)) {
@@ -2075,10 +2077,10 @@ A symbol can be coerced to a string.
 		//puts("");
 		return err;
 	}
-	
-	error arc_load_file(const char *path)
+
+	error arc_load_file(const char* path)
 	{
-		char *text;
+		char* text;
 		error err = ERROR_OK;
 		/* printf("Reading %s...\n", path); */
 		text = slurp(path);
@@ -2092,13 +2094,13 @@ A symbol can be coerced to a string.
 		}
 	}
 
-	error eval_expr(atom expr, std::shared_ptr<struct env> env, atom *result)
+	error eval_expr(atom expr, std::shared_ptr<struct env> env, atom* result)
 	{
 		error err;
 	start_eval:
-				
+
 		if (expr.type == T_SYM) {
-			err = env_get(env, expr.as<std::string *>(), result);
+			err = env_get(env, get<std::string*>(expr.val), result);
 			if (err) err_expr = expr;
 			return err;
 		}
@@ -2111,7 +2113,7 @@ A symbol can be coerced to a string.
 			return ERROR_SYNTAX;
 		}
 		else {
-			const atom &op = car(expr);
+			const atom& op = car(expr);
 			atom args = cdr(expr);
 
 			if (op.type == T_SYM) {
@@ -2150,7 +2152,7 @@ A symbol can be coerced to a string.
 						if (err) {
 							return err;
 						}
-						err = env_assign_eq(env, sym.as<std::string *>(), *result);
+						err = env_assign_eq(env, get<std::string*>(sym.val), *result);
 						if (err) err_expr = expr;
 						return err;
 					}
@@ -2213,7 +2215,7 @@ A symbol can be coerced to a string.
 					if (!err) {
 						macro.type = T_MACRO;
 						*result = name;
-						err = env_assign(env, name.as<std::string *>(), macro);
+						err = env_assign(env, get<std::string*>(name.val), macro);
 						if (err) err_expr = expr;
 						return err;
 					}
@@ -2234,7 +2236,7 @@ A symbol can be coerced to a string.
 
 			/* Evaulate arguments */
 			std::vector<atom> vargs;
-			atom *p = &args;
+			atom* p = &args;
 			while (!no(*p)) {
 				atom r;
 				err = eval_expr(car(*p), env, &r);
@@ -2248,7 +2250,7 @@ A symbol can be coerced to a string.
 
 			/* tail call optimization of err = apply(fn, args, result); */
 			if (fn.type == T_CLOSURE) {
-				struct closure cls = fn.as<struct closure>();
+				struct closure cls = fn.asp<struct closure>();
 				env = std::make_shared<struct env>(cls.parent_env);
 				atom arg_names = cls.args;
 				atom body = cls.body;
@@ -2285,7 +2287,7 @@ A symbol can be coerced to a string.
 #ifdef READLINE
 		rl_bind_key('\t', rl_insert); /* prevent tab completion */
 #endif
-		srand((unsigned int)time(0));		
+		srand((unsigned int)time(0));
 
 		/* Set up the initial environment */
 		sym_t = make_sym("t");
@@ -2309,70 +2311,70 @@ A symbol can be coerced to a string.
 		sym_char = make_sym("char");
 		sym_do = make_sym("do");
 
-		env_assign(global_env, sym_t.as<std::string *>(), sym_t);
-		env_assign(global_env, make_sym("nil").as<std::string *>(), nil);
-		env_assign(global_env, make_sym("car").as<std::string *>(), make_builtin(builtin_car));
-		env_assign(global_env, make_sym("cdr").as<std::string *>(), make_builtin(builtin_cdr));
-		env_assign(global_env, make_sym("cons").as<std::string *>(), make_builtin(builtin_cons));
-		env_assign(global_env, make_sym("+").as<std::string *>(), make_builtin(builtin_add));
-		env_assign(global_env, make_sym("-").as<std::string *>(), make_builtin(builtin_subtract));
-		env_assign(global_env, make_sym("*").as<std::string *>(), make_builtin(builtin_multiply));
-		env_assign(global_env, make_sym("/").as<std::string *>(), make_builtin(builtin_divide));
-		env_assign(global_env, make_sym("<").as<std::string *>(), make_builtin(builtin_less));
-		env_assign(global_env, make_sym(">").as<std::string *>(), make_builtin(builtin_greater));
-		env_assign(global_env, make_sym("apply").as<std::string *>(), make_builtin(builtin_apply));
-		env_assign(global_env, make_sym("is").as<std::string *>(), make_builtin(builtin_is));
-		env_assign(global_env, make_sym("scar").as<std::string *>(), make_builtin(builtin_scar));
-		env_assign(global_env, make_sym("scdr").as<std::string *>(), make_builtin(builtin_scdr));
-		env_assign(global_env, make_sym("mod").as<std::string *>(), make_builtin(builtin_mod));
-		env_assign(global_env, make_sym("type").as<std::string *>(), make_builtin(builtin_type));
-		env_assign(global_env, make_sym("string-sref").as<std::string *>(), make_builtin(builtin_string_sref));
-		env_assign(global_env, make_sym("writeb").as<std::string *>(), make_builtin(builtin_writeb));
-		env_assign(global_env, make_sym("expt").as<std::string *>(), make_builtin(builtin_expt));
-		env_assign(global_env, make_sym("log").as<std::string *>(), make_builtin(builtin_log));
-		env_assign(global_env, make_sym("sqrt").as<std::string *>(), make_builtin(builtin_sqrt));
-		env_assign(global_env, make_sym("readline").as<std::string *>(), make_builtin(builtin_readline));
-		env_assign(global_env, make_sym("quit").as<std::string *>(), make_builtin(builtin_quit));
-		env_assign(global_env, make_sym("rand").as<std::string *>(), make_builtin(builtin_rand));
-		env_assign(global_env, make_sym("read").as<std::string *>(), make_builtin(builtin_read));
-		env_assign(global_env, make_sym("macex").as<std::string *>(), make_builtin(builtin_macex));
-		env_assign(global_env, make_sym("string").as<std::string *>(), make_builtin(builtin_string));
-		env_assign(global_env, make_sym("sym").as<std::string *>(), make_builtin(builtin_sym));
-		env_assign(global_env, make_sym("system").as<std::string *>(), make_builtin(builtin_system));
-		env_assign(global_env, make_sym("eval").as<std::string *>(), make_builtin(builtin_eval));
-		env_assign(global_env, make_sym("load").as<std::string *>(), make_builtin(builtin_load));
-		env_assign(global_env, make_sym("int").as<std::string *>(), make_builtin(builtin_int));
-		env_assign(global_env, make_sym("trunc").as<std::string *>(), make_builtin(builtin_trunc));
-		env_assign(global_env, make_sym("sin").as<std::string *>(), make_builtin(builtin_sin));
-		env_assign(global_env, make_sym("cos").as<std::string *>(), make_builtin(builtin_cos));
-		env_assign(global_env, make_sym("tan").as<std::string *>(), make_builtin(builtin_tan));
-		env_assign(global_env, make_sym("bound").as<std::string *>(), make_builtin(builtin_bound));
-		env_assign(global_env, make_sym("infile").as<std::string *>(), make_builtin(builtin_infile));
-		env_assign(global_env, make_sym("outfile").as<std::string *>(), make_builtin(builtin_outfile));
-		env_assign(global_env, make_sym("close").as<std::string *>(), make_builtin(builtin_close));
-		env_assign(global_env, make_sym("stdin").as<std::string *>(), make_input(stdin));
-		env_assign(global_env, make_sym("stdout").as<std::string *>(), make_output(stdout));
-		env_assign(global_env, make_sym("stderr").as<std::string *>(), make_output(stderr));
-		env_assign(global_env, make_sym("disp").as<std::string *>(), make_builtin(builtin_disp));
-		env_assign(global_env, make_sym("readb").as<std::string *>(), make_builtin(builtin_readb));
-		env_assign(global_env, make_sym("sread").as<std::string *>(), make_builtin(builtin_sread));
-		env_assign(global_env, make_sym("write").as<std::string *>(), make_builtin(builtin_write));
-		env_assign(global_env, make_sym("newstring").as<std::string *>(), make_builtin(builtin_newstring));
-		env_assign(global_env, make_sym("table").as<std::string *>(), make_builtin(builtin_table));
-		env_assign(global_env, make_sym("maptable").as<std::string *>(), make_builtin(builtin_maptable));
-		env_assign(global_env, make_sym("table-sref").as<std::string *>(), make_builtin(builtin_table_sref));
-		env_assign(global_env, make_sym("coerce").as<std::string *>(), make_builtin(builtin_coerce));
-		env_assign(global_env, make_sym("flushout").as<std::string *>(), make_builtin(builtin_flushout));
-		env_assign(global_env, make_sym("err").as<std::string *>(), make_builtin(builtin_err));
-		env_assign(global_env, make_sym("len").as<std::string *>(), make_builtin(builtin_len));
-		env_assign(global_env, make_sym("ccc").as<std::string *>(), make_builtin(builtin_ccc));
-		env_assign(global_env, make_sym("mvfile").as<std::string*>(), make_builtin(builtin_mvfile));
-		env_assign(global_env, make_sym("rmfile").as<std::string*>(), make_builtin(builtin_rmfile));
-		env_assign(global_env, make_sym("dir").as<std::string*>(), make_builtin(builtin_dir));
-		env_assign(global_env, make_sym("pipe-from").as<std::string*>(), make_builtin(builtin_pipe_from));
-		env_assign(global_env, make_sym("dir-exists").as<std::string*>(), make_builtin(builtin_dir_exists));
-		env_assign(global_env, make_sym("file-exists").as<std::string*>(), make_builtin(builtin_file_exists));
-		env_assign(global_env, make_sym("ensure-dir").as<std::string*>(), make_builtin(builtin_ensure_dir));
+		env_assign(global_env, get<sym>(sym_t.val), sym_t);
+		env_assign(global_env, get<std::string*>(make_sym("nil").val), nil);
+		env_assign(global_env, get<std::string*>(make_sym("car").val), make_builtin(builtin_car));
+		env_assign(global_env, get<std::string*>(make_sym("cdr").val), make_builtin(builtin_cdr));
+		env_assign(global_env, get<std::string*>(make_sym("cons").val), make_builtin(builtin_cons));
+		env_assign(global_env, get<std::string*>(make_sym("+").val), make_builtin(builtin_add));
+		env_assign(global_env, get<std::string*>(make_sym("-").val), make_builtin(builtin_subtract));
+		env_assign(global_env, get<std::string*>(make_sym("*").val), make_builtin(builtin_multiply));
+		env_assign(global_env, get<std::string*>(make_sym("/").val), make_builtin(builtin_divide));
+		env_assign(global_env, get<std::string*>(make_sym("<").val), make_builtin(builtin_less));
+		env_assign(global_env, get<std::string*>(make_sym(">").val), make_builtin(builtin_greater));
+		env_assign(global_env, get<std::string*>(make_sym("apply").val), make_builtin(builtin_apply));
+		env_assign(global_env, get<std::string*>(make_sym("is").val), make_builtin(builtin_is));
+		env_assign(global_env, get<std::string*>(make_sym("scar").val), make_builtin(builtin_scar));
+		env_assign(global_env, get<std::string*>(make_sym("scdr").val), make_builtin(builtin_scdr));
+		env_assign(global_env, get<std::string*>(make_sym("mod").val), make_builtin(builtin_mod));
+		env_assign(global_env, get<std::string*>(make_sym("type").val), make_builtin(builtin_type));
+		env_assign(global_env, get<std::string*>(make_sym("string-sref").val), make_builtin(builtin_string_sref));
+		env_assign(global_env, get<std::string*>(make_sym("writeb").val), make_builtin(builtin_writeb));
+		env_assign(global_env, get<std::string*>(make_sym("expt").val), make_builtin(builtin_expt));
+		env_assign(global_env, get<std::string*>(make_sym("log").val), make_builtin(builtin_log));
+		env_assign(global_env, get<std::string*>(make_sym("sqrt").val), make_builtin(builtin_sqrt));
+		env_assign(global_env, get<std::string*>(make_sym("readline").val), make_builtin(builtin_readline));
+		env_assign(global_env, get<std::string*>(make_sym("quit").val), make_builtin(builtin_quit));
+		env_assign(global_env, get<std::string*>(make_sym("rand").val), make_builtin(builtin_rand));
+		env_assign(global_env, get<std::string*>(make_sym("read").val), make_builtin(builtin_read));
+		env_assign(global_env, get<std::string*>(make_sym("macex").val), make_builtin(builtin_macex));
+		env_assign(global_env, get<std::string*>(make_sym("string").val), make_builtin(builtin_string));
+		env_assign(global_env, get<std::string*>(make_sym("sym").val), make_builtin(builtin_sym));
+		env_assign(global_env, get<std::string*>(make_sym("system").val), make_builtin(builtin_system));
+		env_assign(global_env, get<std::string*>(make_sym("eval").val), make_builtin(builtin_eval));
+		env_assign(global_env, get<std::string*>(make_sym("load").val), make_builtin(builtin_load));
+		env_assign(global_env, get<std::string*>(make_sym("int").val), make_builtin(builtin_int));
+		env_assign(global_env, get<std::string*>(make_sym("trunc").val), make_builtin(builtin_trunc));
+		env_assign(global_env, get<std::string*>(make_sym("sin").val), make_builtin(builtin_sin));
+		env_assign(global_env, get<std::string*>(make_sym("cos").val), make_builtin(builtin_cos));
+		env_assign(global_env, get<std::string*>(make_sym("tan").val), make_builtin(builtin_tan));
+		env_assign(global_env, get<std::string*>(make_sym("bound").val), make_builtin(builtin_bound));
+		env_assign(global_env, get<std::string*>(make_sym("infile").val), make_builtin(builtin_infile));
+		env_assign(global_env, get<std::string*>(make_sym("outfile").val), make_builtin(builtin_outfile));
+		env_assign(global_env, get<std::string*>(make_sym("close").val), make_builtin(builtin_close));
+		env_assign(global_env, get<std::string*>(make_sym("stdin").val), make_input(stdin));
+		env_assign(global_env, get<std::string*>(make_sym("stdout").val), make_output(stdout));
+		env_assign(global_env, get<std::string*>(make_sym("stderr").val), make_output(stderr));
+		env_assign(global_env, get<std::string*>(make_sym("disp").val), make_builtin(builtin_disp));
+		env_assign(global_env, get<std::string*>(make_sym("readb").val), make_builtin(builtin_readb));
+		env_assign(global_env, get<std::string*>(make_sym("sread").val), make_builtin(builtin_sread));
+		env_assign(global_env, get<std::string*>(make_sym("write").val), make_builtin(builtin_write));
+		env_assign(global_env, get<std::string*>(make_sym("newstring").val), make_builtin(builtin_newstring));
+		env_assign(global_env, get<std::string*>(make_sym("table").val), make_builtin(builtin_table));
+		env_assign(global_env, get<std::string*>(make_sym("maptable").val), make_builtin(builtin_maptable));
+		env_assign(global_env, get<std::string*>(make_sym("table-sref").val), make_builtin(builtin_table_sref));
+		env_assign(global_env, get<std::string*>(make_sym("coerce").val), make_builtin(builtin_coerce));
+		env_assign(global_env, get<std::string*>(make_sym("flushout").val), make_builtin(builtin_flushout));
+		env_assign(global_env, get<std::string*>(make_sym("err").val), make_builtin(builtin_err));
+		env_assign(global_env, get<std::string*>(make_sym("len").val), make_builtin(builtin_len));
+		env_assign(global_env, get<std::string*>(make_sym("ccc").val), make_builtin(builtin_ccc));
+		env_assign(global_env, get<std::string*>(make_sym("mvfile").val), make_builtin(builtin_mvfile));
+		env_assign(global_env, get<std::string*>(make_sym("rmfile").val), make_builtin(builtin_rmfile));
+		env_assign(global_env, get<std::string*>(make_sym("dir").val), make_builtin(builtin_dir));
+		env_assign(global_env, get<std::string*>(make_sym("pipe-from").val), make_builtin(builtin_pipe_from));
+		env_assign(global_env, get<std::string*>(make_sym("dir-exists").val), make_builtin(builtin_dir_exists));
+		env_assign(global_env, get<std::string*>(make_sym("file-exists").val), make_builtin(builtin_file_exists));
+		env_assign(global_env, get<std::string*>(make_sym("ensure-dir").val), make_builtin(builtin_ensure_dir));
 
 #include "library.h"
 
@@ -2391,7 +2393,7 @@ A symbol can be coerced to a string.
 	}
 
 	void repl() {
-		char *temp;
+		char* temp;
 		std::string input;
 
 		while ((temp = readline("> ")) != NULL) {
@@ -2399,14 +2401,14 @@ A symbol can be coerced to a string.
 			free(temp);
 		read_start:
 
-			const char *p = input.c_str();
+			const char* p = input.c_str();
 			error err;
 			atom result;
 
 			atom expr;
 			err = read_expr(p, &p, &expr);
 			if (err == ERROR_FILE) { /* read more lines */
-				char *line = readline("  ");
+				char* line = readline("  ");
 				if (!line) break;
 				input += std::string("\n") + line;
 				free(line);

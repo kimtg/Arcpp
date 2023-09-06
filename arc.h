@@ -21,6 +21,7 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <variant>
 
 #ifdef READLINE
 #include <readline/readline.h>
@@ -34,7 +35,7 @@
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.28";
+	constexpr auto VERSION = "0.29";
 
 	enum type {
 		T_NIL,
@@ -59,15 +60,26 @@ namespace arc {
 
 	typedef struct atom atom;
 	typedef error(*builtin)(const std::vector<atom> &vargs, atom *result);
+	typedef std::unordered_map<atom, atom> table;
+	typedef std::unordered_map<std::string*, atom> env_table;
+	typedef std::string* sym;
 
 	struct atom {
 		enum type type = T_NIL;
-		std::shared_ptr<void> p; // reference-counted pointer
+		std::variant<
+			std::shared_ptr<struct cons>,
+			sym,
+			double,
+			builtin,
+			std::shared_ptr<struct closure>,
+			std::shared_ptr<std::string>,
+			FILE *,
+			std::shared_ptr<table>,
+			char,
+			jmp_buf *> val = 0.0;
 
 		template <typename T>
-		T& as() const {
-			return *std::static_pointer_cast<T>(p);
-		}
+		T& asp() const { return *std::get<std::shared_ptr<T>>(val); }
 
 		friend bool operator ==(const atom &a, const atom &b);
 	};
@@ -76,9 +88,6 @@ namespace arc {
 		struct atom car, cdr;
 		cons(atom car, atom cdr);
 	};
-
-	typedef std::unordered_map<atom, atom> table;
-	typedef std::unordered_map<std::string *, atom> env_table;
 
 	struct env {
 		std::shared_ptr<struct env> parent;
@@ -145,22 +154,23 @@ namespace std {
 				}
 				return r;
 			case arc::T_SYM:
-				return hash<std::string *>()(a.as<string *>());
+				return hash<std::string*>()(std::get<arc::sym>(a.val));
 			case arc::T_STRING: {
-				return hash<string>()(a.as<string>());
+				return hash<string>()(a.asp<string>());
 			}
 			case arc::T_NUM: {
-				return hash<double>()(a.as<double>());
+				return hash<double>()(std::get<double>(a.val));
 			}
 			case arc::T_CLOSURE:
 				return hash<arc::atom>()(cdr(a));
 			case arc::T_MACRO:
 				return hash<arc::atom>()(cdr(a));
 			case arc::T_BUILTIN:
+				return hash<arc::builtin>()(std::get<arc::builtin>(a.val));
 			case arc::T_INPUT:
 			case arc::T_INPUT_PIPE:
 			case arc::T_OUTPUT:
-				return hash<void *>()(a.p.get());
+				return hash<void *>()(std::get<FILE *>(a.val));
 			default:
 				return 0;
 			}
