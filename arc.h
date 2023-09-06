@@ -68,6 +68,7 @@ namespace arc {
 	struct atom {
 		enum type type = T_NIL;
 		std::variant<
+			std::monostate,
 			std::shared_ptr<struct cons>,
 			sym,
 			double,
@@ -77,7 +78,7 @@ namespace arc {
 			FILE *,
 			std::shared_ptr<table>,
 			char,
-			jmp_buf *> val = 0.0;
+			jmp_buf *> val;
 
 		template <typename T>
 		T& asp() const { return *std::get<std::shared_ptr<T>>(val); }
