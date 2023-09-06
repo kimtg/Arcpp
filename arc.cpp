@@ -555,13 +555,13 @@ namespace arc {
 		}
 	}
 
-	error env_assign(const shared_ptr<struct env>& env, sym symbol, atom value) {
+	error env_assign(const shared_ptr<struct env>& env, sym symbol, const atom &value) {
 		auto& tbl = env->table;
 		tbl[symbol] = value;
 		return ERROR_OK;
 	}
 
-	error env_assign_eq(shared_ptr<struct env> env, sym symbol, atom value) {
+	error env_assign_eq(shared_ptr<struct env> env, sym symbol, const atom &value) {
 		while (1) {
 			auto& tbl = env->table;
 			auto found = tbl.find(symbol);
@@ -2283,6 +2283,10 @@ A symbol can be coerced to a string.
 		}
 	}
 
+	void bind_global(const string& name, const atom &a) {
+		env_assign(global_env, get<sym>(make_sym(name).val), a);
+	}
+
 	void arc_init() {
 #ifdef READLINE
 		rl_bind_key('\t', rl_insert); /* prevent tab completion */
@@ -2312,69 +2316,69 @@ A symbol can be coerced to a string.
 		sym_do = make_sym("do");
 		
 		env_assign(global_env, get<sym>(sym_t.val), sym_t);
-		env_assign(global_env, get<sym>(make_sym("nil").val), nil);
-		env_assign(global_env, get<sym>(make_sym("car").val), make_builtin(builtin_car));
-		env_assign(global_env, get<sym>(make_sym("cdr").val), make_builtin(builtin_cdr));
-		env_assign(global_env, get<sym>(make_sym("cons").val), make_builtin(builtin_cons));
-		env_assign(global_env, get<sym>(make_sym("+").val), make_builtin(builtin_add));
-		env_assign(global_env, get<sym>(make_sym("-").val), make_builtin(builtin_subtract));
-		env_assign(global_env, get<sym>(make_sym("*").val), make_builtin(builtin_multiply));
-		env_assign(global_env, get<sym>(make_sym("/").val), make_builtin(builtin_divide));
-		env_assign(global_env, get<sym>(make_sym("<").val), make_builtin(builtin_less));
-		env_assign(global_env, get<sym>(make_sym(">").val), make_builtin(builtin_greater));
-		env_assign(global_env, get<sym>(make_sym("apply").val), make_builtin(builtin_apply));
-		env_assign(global_env, get<sym>(make_sym("is").val), make_builtin(builtin_is));
-		env_assign(global_env, get<sym>(make_sym("scar").val), make_builtin(builtin_scar));
-		env_assign(global_env, get<sym>(make_sym("scdr").val), make_builtin(builtin_scdr));
-		env_assign(global_env, get<sym>(make_sym("mod").val), make_builtin(builtin_mod));
-		env_assign(global_env, get<sym>(make_sym("type").val), make_builtin(builtin_type));
-		env_assign(global_env, get<sym>(make_sym("string-sref").val), make_builtin(builtin_string_sref));
-		env_assign(global_env, get<sym>(make_sym("writeb").val), make_builtin(builtin_writeb));
-		env_assign(global_env, get<sym>(make_sym("expt").val), make_builtin(builtin_expt));
-		env_assign(global_env, get<sym>(make_sym("log").val), make_builtin(builtin_log));
-		env_assign(global_env, get<sym>(make_sym("sqrt").val), make_builtin(builtin_sqrt));
-		env_assign(global_env, get<sym>(make_sym("readline").val), make_builtin(builtin_readline));
-		env_assign(global_env, get<sym>(make_sym("quit").val), make_builtin(builtin_quit));
-		env_assign(global_env, get<sym>(make_sym("rand").val), make_builtin(builtin_rand));
-		env_assign(global_env, get<sym>(make_sym("read").val), make_builtin(builtin_read));
-		env_assign(global_env, get<sym>(make_sym("macex").val), make_builtin(builtin_macex));
-		env_assign(global_env, get<sym>(make_sym("string").val), make_builtin(builtin_string));
-		env_assign(global_env, get<sym>(make_sym("sym").val), make_builtin(builtin_sym));
-		env_assign(global_env, get<sym>(make_sym("system").val), make_builtin(builtin_system));
-		env_assign(global_env, get<sym>(make_sym("eval").val), make_builtin(builtin_eval));
-		env_assign(global_env, get<sym>(make_sym("load").val), make_builtin(builtin_load));
-		env_assign(global_env, get<sym>(make_sym("int").val), make_builtin(builtin_int));
-		env_assign(global_env, get<sym>(make_sym("trunc").val), make_builtin(builtin_trunc));
-		env_assign(global_env, get<sym>(make_sym("sin").val), make_builtin(builtin_sin));
-		env_assign(global_env, get<sym>(make_sym("cos").val), make_builtin(builtin_cos));
-		env_assign(global_env, get<sym>(make_sym("tan").val), make_builtin(builtin_tan));
-		env_assign(global_env, get<sym>(make_sym("bound").val), make_builtin(builtin_bound));
-		env_assign(global_env, get<sym>(make_sym("infile").val), make_builtin(builtin_infile));
-		env_assign(global_env, get<sym>(make_sym("outfile").val), make_builtin(builtin_outfile));
-		env_assign(global_env, get<sym>(make_sym("close").val), make_builtin(builtin_close));
-		env_assign(global_env, get<sym>(make_sym("stdin").val), make_input(stdin));
-		env_assign(global_env, get<sym>(make_sym("stdout").val), make_output(stdout));
-		env_assign(global_env, get<sym>(make_sym("stderr").val), make_output(stderr));
-		env_assign(global_env, get<sym>(make_sym("disp").val), make_builtin(builtin_disp));
-		env_assign(global_env, get<sym>(make_sym("readb").val), make_builtin(builtin_readb));
-		env_assign(global_env, get<sym>(make_sym("sread").val), make_builtin(builtin_sread));
-		env_assign(global_env, get<sym>(make_sym("write").val), make_builtin(builtin_write));
-		env_assign(global_env, get<sym>(make_sym("newstring").val), make_builtin(builtin_newstring));
-		env_assign(global_env, get<sym>(make_sym("table").val), make_builtin(builtin_table));
-		env_assign(global_env, get<sym>(make_sym("maptable").val), make_builtin(builtin_maptable));
-		env_assign(global_env, get<sym>(make_sym("table-sref").val), make_builtin(builtin_table_sref));
-		env_assign(global_env, get<sym>(make_sym("coerce").val), make_builtin(builtin_coerce));
-		env_assign(global_env, get<sym>(make_sym("flushout").val), make_builtin(builtin_flushout));
-		env_assign(global_env, get<sym>(make_sym("err").val), make_builtin(builtin_err));
-		env_assign(global_env, get<sym>(make_sym("len").val), make_builtin(builtin_len));
-		env_assign(global_env, get<sym>(make_sym("ccc").val), make_builtin(builtin_ccc));
-		env_assign(global_env, get<sym>(make_sym("mvfile").val), make_builtin(builtin_mvfile));
-		env_assign(global_env, get<sym>(make_sym("rmfile").val), make_builtin(builtin_rmfile));
-		env_assign(global_env, get<sym>(make_sym("dir").val), make_builtin(builtin_dir));
-		env_assign(global_env, get<sym>(make_sym("pipe-from").val), make_builtin(builtin_pipe_from));
-		env_assign(global_env, get<sym>(make_sym("dir-exists").val), make_builtin(builtin_dir_exists));
-		env_assign(global_env, get<sym>(make_sym("file-exists").val), make_builtin(builtin_file_exists));
-		env_assign(global_env, get<sym>(make_sym("ensure-dir").val), make_builtin(builtin_ensure_dir));
+		bind_global("nil", nil);
+		bind_global("car", make_builtin(builtin_car));
+		bind_global("cdr", make_builtin(builtin_cdr));
+		bind_global("cons", make_builtin(builtin_cons));
+		bind_global("+", make_builtin(builtin_add));
+		bind_global("-", make_builtin(builtin_subtract));
+		bind_global("*", make_builtin(builtin_multiply));
+		bind_global("/", make_builtin(builtin_divide));
+		bind_global("<", make_builtin(builtin_less));
+		bind_global(">", make_builtin(builtin_greater));
+		bind_global("apply", make_builtin(builtin_apply));
+		bind_global("is", make_builtin(builtin_is));
+		bind_global("scar", make_builtin(builtin_scar));
+		bind_global("scdr", make_builtin(builtin_scdr));
+		bind_global("mod", make_builtin(builtin_mod));
+		bind_global("type", make_builtin(builtin_type));
+		bind_global("string-sref", make_builtin(builtin_string_sref));
+		bind_global("writeb", make_builtin(builtin_writeb));
+		bind_global("expt", make_builtin(builtin_expt));
+		bind_global("log", make_builtin(builtin_log));
+		bind_global("sqrt", make_builtin(builtin_sqrt));
+		bind_global("readline", make_builtin(builtin_readline));
+		bind_global("quit", make_builtin(builtin_quit));
+		bind_global("rand", make_builtin(builtin_rand));
+		bind_global("read", make_builtin(builtin_read));
+		bind_global("macex", make_builtin(builtin_macex));
+		bind_global("string", make_builtin(builtin_string));
+		bind_global("sym", make_builtin(builtin_sym));
+		bind_global("system", make_builtin(builtin_system));
+		bind_global("eval", make_builtin(builtin_eval));
+		bind_global("load", make_builtin(builtin_load));
+		bind_global("int", make_builtin(builtin_int));
+		bind_global("trunc", make_builtin(builtin_trunc));
+		bind_global("sin", make_builtin(builtin_sin));
+		bind_global("cos", make_builtin(builtin_cos));
+		bind_global("tan", make_builtin(builtin_tan));
+		bind_global("bound", make_builtin(builtin_bound));
+		bind_global("infile", make_builtin(builtin_infile));
+		bind_global("outfile", make_builtin(builtin_outfile));
+		bind_global("close", make_builtin(builtin_close));
+		bind_global("stdin", make_input(stdin));
+		bind_global("stdout", make_output(stdout));
+		bind_global("stderr", make_output(stderr));
+		bind_global("disp", make_builtin(builtin_disp));
+		bind_global("readb", make_builtin(builtin_readb));
+		bind_global("sread", make_builtin(builtin_sread));
+		bind_global("write", make_builtin(builtin_write));
+		bind_global("newstring", make_builtin(builtin_newstring));
+		bind_global("table", make_builtin(builtin_table));
+		bind_global("maptable", make_builtin(builtin_maptable));
+		bind_global("table-sref", make_builtin(builtin_table_sref));
+		bind_global("coerce", make_builtin(builtin_coerce));
+		bind_global("flushout", make_builtin(builtin_flushout));
+		bind_global("err", make_builtin(builtin_err));
+		bind_global("len", make_builtin(builtin_len));
+		bind_global("ccc", make_builtin(builtin_ccc));
+		bind_global("mvfile", make_builtin(builtin_mvfile));
+		bind_global("rmfile", make_builtin(builtin_rmfile));
+		bind_global("dir", make_builtin(builtin_dir));
+		bind_global("pipe-from", make_builtin(builtin_pipe_from));
+		bind_global("dir-exists", make_builtin(builtin_dir_exists));
+		bind_global("file-exists", make_builtin(builtin_file_exists));
+		bind_global("ensure-dir", make_builtin(builtin_ensure_dir));
 
 #include "library.h"
 
