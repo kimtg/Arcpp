@@ -625,17 +625,10 @@ namespace arc {
 	}
 
 	error destructuring_bind(atom arg_name, atom val, int val_unspecified, const shared_ptr<struct env>& env) {
-		if (no(arg_name)) {
-			if (no(val))
-				return ERROR_OK;
-			else {
-				return ERROR_ARGS;
-			}
-		}
-		else if (arg_name.type == T_SYM) {
+		switch (arg_name.type) {
+		case T_SYM:
 			return env_assign(env, get<sym>(arg_name.val), val);
-		}
-		else if (arg_name.type == T_CONS) {
+		case T_CONS:
 			if (is(car(arg_name), sym_o)) { /* (o ARG [DEFAULT]) */
 				if (val_unspecified) { /* missing argument */
 					if (!no(cdr(cdr(arg_name)))) {
@@ -657,8 +650,13 @@ namespace arc {
 				}
 				return destructuring_bind(cdr(arg_name), cdr(val), no(cdr(val)), env);
 			}
-		}
-		else {
+		case T_NIL:
+			if (no(val))
+				return ERROR_OK;
+			else {
+				return ERROR_ARGS;
+			}
+		default:
 			return ERROR_ARGS;
 		}
 	}
