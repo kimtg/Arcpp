@@ -35,7 +35,7 @@
 #endif
 
 namespace arc {
-	constexpr auto VERSION = "0.29";
+	constexpr auto VERSION = "0.30";
 
 	enum type {
 		T_NIL,
@@ -63,7 +63,6 @@ namespace arc {
 	typedef std::unordered_map<atom, atom> table;
 	typedef std::string* sym;
 	typedef std::unordered_map<sym, atom> env_table;
-	
 	
 	struct atom {
 		enum type type = T_NIL;
