@@ -2060,11 +2060,13 @@ A symbol can be coerced to a string.
 			}
 			err = read_expr(p, &p, &expr);
 			if (err) {
+				err_expr = expr;
 				break;
 			}
 			atom result;
 			err = macex_eval(expr, &result);
 			if (err) {
+				err_expr = expr;
 				break;
 			}
 			//else {
@@ -2107,7 +2109,6 @@ A symbol can be coerced to a string.
 			return ERROR_OK;
 		}
 		else if (!listp(expr)) {
-			err_expr = expr;
 			return ERROR_SYNTAX;
 		}
 		else {
@@ -2125,7 +2126,6 @@ A symbol can be coerced to a string.
 						}
 						err = eval_expr(car(args), env, result);
 						if (err) {
-							err_expr = expr;
 							return err;
 						}
 						if (!no(*result)) { /* then */
@@ -2140,7 +2140,6 @@ A symbol can be coerced to a string.
 				else if (sym_is(op, sym_assign)) {
 					atom sym1;
 					if (no(args) || no(cdr(args))) {
-						err_expr = expr;
 						return ERROR_ARGS;
 					}
 
@@ -2151,17 +2150,14 @@ A symbol can be coerced to a string.
 							return err;
 						}
 						err = env_assign_eq(env, get<sym>(sym1.val), *result);
-						if (err) err_expr = expr;
 						return err;
 					}
 					else {
-						err_expr = expr;
 						return ERROR_TYPE;
 					}
 				}
 				else if (sym_is(op, sym_quote)) {
 					if (no(args) || !no(cdr(args))) {
-						err_expr = expr;
 						return ERROR_ARGS;
 					}
 
@@ -2170,11 +2166,9 @@ A symbol can be coerced to a string.
 				}
 				else if (sym_is(op, sym_fn)) {
 					if (no(args)) {
-						err_expr = expr;
 						return ERROR_ARGS;
 					}
 					err = make_closure(env, car(args), cdr(args), result);
-					if (err) err_expr = expr;
 					return err;
 				}
 				else if (sym_is(op, sym_do)) {
@@ -2188,7 +2182,6 @@ A symbol can be coerced to a string.
 						}
 						error err = eval_expr(car(args), env, result);
 						if (err) {
-							err_expr = expr;
 							return err;
 						}
 						args = cdr(args);
@@ -2199,13 +2192,11 @@ A symbol can be coerced to a string.
 					atom name, macro;
 
 					if (no(args) || no(cdr(args)) || no(cdr(cdr(args)))) {
-						err_expr = expr;
 						return ERROR_ARGS;
 					}
 
 					name = car(args);
 					if (name.type != T_SYM) {
-						err_expr = expr;
 						return ERROR_TYPE;
 					}
 
@@ -2214,11 +2205,9 @@ A symbol can be coerced to a string.
 						macro.type = T_MACRO;
 						*result = name;
 						err = env_assign(env, get<sym>(name.val), macro);
-						if (err) err_expr = expr;
 						return err;
 					}
 					else {
-						err_expr = expr;
 						return err;
 					}
 				}
@@ -2228,7 +2217,6 @@ A symbol can be coerced to a string.
 			atom fn;
 			err = eval_expr(op, env, &fn);
 			if (err) {
-				err_expr = expr;
 				return err;
 			}
 
@@ -2239,7 +2227,6 @@ A symbol can be coerced to a string.
 				atom r;
 				err = eval_expr(car(*p), env, &r);
 				if (err) {
-					err_expr = expr;
 					return err;
 				}
 				vargs.push_back(r);
@@ -2266,7 +2253,6 @@ A symbol can be coerced to a string.
 					atom r;
 					error err = eval_expr(car(body), env, &r);
 					if (err) {
-						err_expr = expr;
 						return err;
 					}
 					body = cdr(body);
@@ -2275,7 +2261,6 @@ A symbol can be coerced to a string.
 			}
 			else {
 				err = apply(fn, vargs, result);
-				if (err) err_expr = expr;
 			}
 			return err;
 		}
@@ -2388,7 +2373,7 @@ A symbol can be coerced to a string.
 
 	void print_error(error e) {
 		if (e != ERROR_USER) {
-			printf("%s : ", error_string[e]);
+			printf("%s: ", error_string[e]);
 			print_expr(err_expr);
 			puts("");
 		}
@@ -2442,6 +2427,7 @@ A symbol can be coerced to a string.
 				}
 			}
 			else {
+				err_expr = expr;
 				print_error(err);
 			}
 		}
