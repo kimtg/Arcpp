@@ -1036,4 +1036,19 @@ by args passed in, so that future calls with the same inputs can save work."
 (mac defmemo (name parms . body)
 "Like [[def]] but defines a memoized function. See [[memo]]."
   `(assign ,name (memo (fn ,parms ,@body))))
+
+(def readfile (filename)
+  (with (p (infile filename 'text)
+    r nil)
+    (whilet e (read p) (= r (cons e r)))
+    (rev r)))
+    
+(def readfile1 (filename)
+  (let p (infile filename 'text)
+    (read p)))
+
+(def writefile (e filename)
+  (let p (outfile filename)
+    (write e p)
+    (close p)))
 )EOF";
