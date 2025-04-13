@@ -1040,7 +1040,7 @@ by args passed in, so that future calls with the same inputs can save work."
 (def readfile (filename)
   (with (p (infile filename 'text)
     r nil)
-    (whilet e (read p) (= r (cons e r)))
+    (whiler e (read p '_eof) '_eof (= r (cons e r)))
     (rev r)))
     
 (def readfile1 (filename)

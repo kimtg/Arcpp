@@ -1,7 +1,9 @@
 #include "arc.h"
 
+constexpr auto VERSION = "0.35";
+
 void print_logo() {
-	printf("Arc++ %s\n", arc::VERSION);
+	printf("Arc++ %s\n", VERSION);
 }
 
 int main(int argc, char **argv)
@@ -24,7 +26,7 @@ int main(int argc, char **argv)
 			return 0;
 		}
 		else if (strcmp(opt, "-v") == 0) {
-			puts(arc::VERSION);
+			puts(VERSION);
 			return 0;
 		}
 	}
