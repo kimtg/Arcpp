@@ -1411,14 +1411,23 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	error builtin_infile(const vector<atom>& vargs, atom* result) {
-		if (vargs.size() == 1) {
-			atom a = vargs[0];
-			if (a.type != T_STRING) return ERROR_TYPE;
-			FILE* fp = fopen(a.asp<string>().c_str(), "r");
-			*result = make_input(fp);
-			return ERROR_OK;
+		string mode = "rb";
+		if (vargs.size() == 2) {
+			if (vargs[1].type != T_SYM) return ERROR_TYPE;
+			if (*get<sym>(vargs[1].val) == "text") {
+				mode = "r";
+			}
+		}
+		else if (vargs.size() == 1) {
+			/* pass */
 		}
 		else return ERROR_ARGS;
+		atom a = vargs[0];
+		if (a.type != T_STRING) return ERROR_TYPE;
+		FILE* fp = fopen(a.asp<string>().c_str(), mode.c_str());
+		if (!fp) return ERROR_FILE;
+		*result = make_input(fp);
+		return ERROR_OK;
 	}
 
 	error builtin_outfile(const vector<atom>& vargs, atom* result) {
