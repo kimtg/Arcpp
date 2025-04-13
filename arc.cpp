@@ -1508,10 +1508,8 @@ Addition. This operator also performs string and list concatenation.
 			return ERROR_ARGS;
 		}
 		atom a = vargs[0];
-		if (a.type == T_STRING) fputc('"', fp);
 		string s = to_string(a, 1);
 		fprintf(fp, "%s", s.c_str());
-		if (a.type == T_STRING) fputc('"', fp);
 		*result = nil;
 		return ERROR_OK;
 	}
