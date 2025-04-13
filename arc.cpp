@@ -1411,7 +1411,7 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	error builtin_infile(const vector<atom>& vargs, atom* result) {
-		string mode = "rb";
+		const char* mode = "rb";
 		if (vargs.size() == 2) {
 			if (vargs[1].type != T_SYM) return ERROR_TYPE;
 			if (*get<sym>(vargs[1].val) == "text") {
@@ -1419,26 +1419,31 @@ Addition. This operator also performs string and list concatenation.
 			}
 		}
 		else if (vargs.size() == 1) {
-			/* pass */
 		}
 		else return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
-		FILE* fp = fopen(a.asp<string>().c_str(), mode.c_str());
+		FILE* fp = fopen(a.asp<string>().c_str(), mode);
 		if (!fp) return ERROR_FILE;
 		*result = make_input(fp);
 		return ERROR_OK;
 	}
 
+	/* outfile filename ['append]
+	   Opens the specified path for writing. By default, the file is truncated if it already exists. Returns an output - port. Arc supports only 'text mode for outfile. */
 	error builtin_outfile(const vector<atom>& vargs, atom* result) {
-		if (vargs.size() == 1) {
-			atom a = vargs[0];
-			if (a.type != T_STRING) return ERROR_TYPE;
-			FILE* fp = fopen(a.asp<string>().c_str(), "w");
-			*result = make_output(fp);
-			return ERROR_OK;
+		const char* mode = "w";
+		if (vargs.size() == 2) {
+			mode = "a";
+		}
+		else if (vargs.size() == 1) {
 		}
 		else return ERROR_ARGS;
+		atom a = vargs[0];
+		if (a.type != T_STRING) return ERROR_TYPE;
+		FILE* fp = fopen(a.asp<string>().c_str(), mode);
+		*result = make_output(fp);
+		return ERROR_OK;
 	}
 
 	/* close port ... */
