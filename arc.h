@@ -59,7 +59,7 @@ namespace arc {
 	typedef struct atom atom;
 	typedef error(*builtin)(const std::vector<atom> &vargs, atom *result);
 	typedef std::unordered_map<atom, atom> table;
-	typedef std::string* sym;
+	typedef int sym;
 	typedef std::unordered_map<sym, atom> env_table;
 	
 	struct atom {

@@ -10,7 +10,8 @@ namespace arc {
 	atom sym_t, sym_quote, sym_quasiquote, sym_unquote, sym_unquote_splicing, sym_assign, sym_fn, sym_if, sym_mac, sym_apply, sym_cons, sym_sym, sym_string, sym_num, sym__, sym_o, sym_table, sym_int, sym_char, sym_do;
 	atom err_expr; /* for error reporting */
 	atom thrown;
-	unordered_map<string, sym> id_of_sym;
+	unordered_map<string, sym> sym_of_str;
+	unordered_map<sym, string> str_of_sym;
 
 	cons::cons(atom car, atom cdr) : car(car), cdr(cdr) {}
 	env::env(shared_ptr<struct env> parent) : parent(parent) {}
@@ -74,14 +75,17 @@ namespace arc {
 		atom a;
 		a.type = T_SYM;
 
-		auto found = id_of_sym.find(s);
-		if (found != id_of_sym.end()) {
+		auto found = sym_of_str.find(s);
+		if (found != sym_of_str.end()) {
 			a.val = found->second;
 			return a;
 		}
 
-		a.val = new string(s);
-		id_of_sym[s] = get<sym>(a.val);
+		// new symbol
+		int id = sym_of_str.size();
+		a.val = id;
+		sym_of_str[s] = id;
+		str_of_sym[id] = s;
 		return a;
 	}
 
@@ -1343,7 +1347,7 @@ Addition. This operator also performs string and list concatenation.
 				*result = make_number(atol(a.asp<string>().c_str()));
 				break;
 			case T_SYM:
-				*result = make_number(atol(get<sym>(a.val)->c_str()));
+				*result = make_number(atol(to_string(a, 0).c_str()));
 				break;
 			case T_NUM:
 				*result = make_number((long)(get<double>(a.val)));
@@ -1414,7 +1418,7 @@ Addition. This operator also performs string and list concatenation.
 		const char* mode = "rb";
 		if (vargs.size() == 2) {
 			if (vargs[1].type != T_SYM) return ERROR_TYPE;
-			if (*get<sym>(vargs[1].val) == "text") {
+			if (to_string(vargs[1], 0) == "text") {
 				mode = "r";
 			}
 		}
@@ -1665,7 +1669,7 @@ A symbol can be coerced to a string.
 			break;
 		case T_SYM:
 			if (is(type, sym_string)) {
-				*result = make_string(*get<sym>(obj.val));
+				*result = make_string(to_string(obj, 0));
 			}
 			else if (is(type, sym_sym))
 				*result = obj;
@@ -1877,7 +1881,7 @@ A symbol can be coerced to a string.
 			break;
 		}
 		case T_SYM:
-			s = *get<sym>(a.val);
+			s = str_of_sym[get<sym>(a.val)];
 			break;
 		case T_STRING:
 			if (write) s += "\"";
