@@ -2406,7 +2406,6 @@ A symbol can be coerced to a string.
 
 			const char* p = input.c_str();
 			error err;
-			atom result;
 
 			atom expr;
 			err = read_expr(p, &p, &expr);
