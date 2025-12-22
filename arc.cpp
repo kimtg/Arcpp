@@ -583,22 +583,20 @@ namespace arc {
 
 	int listp(atom expr)
 	{
-		atom p = expr;
-		while (!no(p)) {
-			if (p.type != T_CONS)
+		while (!no(expr)) {
+			if (expr.type != T_CONS)
 				return 0;
-			p = cdr(p);
+			expr = cdr(expr);
 		}
 		return 1;
 	}
 
-	size_t len(atom xs) {
-		atom p = xs;
+	size_t len(atom expr) {
 		size_t ret = 0;
-		while (!no(p)) {
-			if (p.type != T_CONS)
+		while (!no(expr)) {
+			if (expr.type != T_CONS)
 				return ret + 1;
-			p = cdr(p);
+			expr = cdr(expr);
 			ret++;
 		}
 		return ret;
