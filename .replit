@@ -1,5 +1,0 @@
-run = ""
-entrypoint = "main.sh"
-
-[agent]
-expertMode = true
