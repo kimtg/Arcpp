@@ -1,6 +1,6 @@
 #include "arc.h"
 
-constexpr auto VERSION = "0.36.2";
+constexpr auto VERSION = "0.36.3";
 
 void print_logo() {
 	printf("Arc++ %s\n", VERSION);
