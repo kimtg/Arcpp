@@ -20,6 +20,8 @@ mingw32-make mingw
 For Visual C++, use .sln file.
 For Code::Blocks, use .cbp file.
 
+Note: GCC produces a faster and smaller binary than Visual C++.
+
 ## Run
 ```
 Usage: arc++ [OPTIONS...] [FILES...]
