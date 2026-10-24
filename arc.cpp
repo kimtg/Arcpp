@@ -11,6 +11,11 @@ namespace arc {
 	std::unordered_map<std::string, sym> sym_of_str;
 	std::unordered_map<sym, std::string> str_of_sym;
 
+	struct continuation_exception {
+		uint64_t id;
+		atom val;
+	};
+
 	cons::cons(atom car, atom cdr) : car(car), cdr(cdr) {}
 	env::env(std::shared_ptr<struct env> parent) : parent(parent) {}
 	closure::closure(const std::shared_ptr<struct env>& env, atom args, atom body) : parent_env(env), args(args), body(body) {}
@@ -26,8 +31,22 @@ namespace arc {
 
 	std::vector<atom> atom_to_vector(atom a) {
 		std::vector<atom> r;
+		atom slow = a;
+		atom fast = a;
 		for (; !no(a); a = cdr(a)) {
+			if (a.type != T_CONS) {
+				r.push_back(a);
+				break;
+			}
 			r.push_back(car(a));
+			if (!no(fast) && fast.type == T_CONS) {
+				fast = cdr(fast);
+				if (!no(fast) && fast.type == T_CONS) {
+					fast = cdr(fast);
+					slow = cdr(slow);
+					if (is(slow, fast)) break; // cycle detected
+				}
+			}
 		}
 		return r;
 	}
@@ -187,7 +206,10 @@ namespace arc {
 			str++;
 			while (1) {
 				if (*str == 0) return ERROR_FILE; /* string not terminated */
-				if (*str == '\\') str++;
+				if (*str == '\\') {
+					str++;
+					if (*str == 0) return ERROR_FILE;
+				}
 				else if (*str == '"') {
 					break;
 				}
@@ -223,6 +245,7 @@ namespace arc {
 			char* pt = buf;
 			while (ps < end - 1) {
 				if (*ps == '\\') {
+					if (ps + 1 >= end - 1) break;
 					char c_next = *(ps + 1);
 					switch (c_next) {
 					case 'r':
@@ -581,21 +604,37 @@ namespace arc {
 
 	int listp(atom expr)
 	{
-		while (!no(expr)) {
-			if (expr.type != T_CONS)
-				return 0;
-			expr = cdr(expr);
+		atom slow = expr;
+		atom fast = expr;
+		while (!no(fast)) {
+			if (fast.type != T_CONS) return 0;
+			fast = cdr(fast);
+			if (no(fast)) return 1;
+			if (fast.type != T_CONS) return 0;
+			fast = cdr(fast);
+			slow = cdr(slow);
+			if (is(slow, fast)) return 0; // cycle detected
 		}
 		return 1;
 	}
 
 	size_t len(atom expr) {
 		size_t ret = 0;
+		atom slow = expr;
+		atom fast = expr;
 		while (!no(expr)) {
 			if (expr.type != T_CONS)
 				return ret + 1;
 			expr = cdr(expr);
 			ret++;
+			if (!no(fast) && fast.type == T_CONS) {
+				fast = cdr(fast);
+				if (!no(fast) && fast.type == T_CONS) {
+					fast = cdr(fast);
+					slow = cdr(slow);
+					if (is(slow, fast)) break; // cycle detected
+				}
+			}
 		}
 		return ret;
 	}
@@ -611,6 +650,9 @@ namespace arc {
 		p = a;
 		list = cdr(list);
 
+		atom slow = list;
+		atom fast = list;
+
 		while (!no(list)) {
 			cdr(p) = make_cons(car(list), nil);
 			p = cdr(p);
@@ -618,6 +660,14 @@ namespace arc {
 			if (list.type != T_CONS) { /* improper list */
 				p = list;
 				break;
+			}
+			if (!no(fast) && fast.type == T_CONS) {
+				fast = cdr(fast);
+				if (!no(fast) && fast.type == T_CONS) {
+					fast = cdr(fast);
+					slow = cdr(slow);
+					if (is(slow, fast)) break;
+				}
 			}
 		}
 
@@ -716,23 +766,44 @@ namespace arc {
 		}
 		else if (fn.type == T_CONTINUATION) {
 			if (vargs.size() != 1) return ERROR_ARGS;
-			thrown = vargs[0];
-			longjmp(*std::get<jmp_buf*>(fn.val), 1);
+			auto cont = std::get<std::shared_ptr<struct continuation>>(fn.val);
+			if (!cont || !cont->active) {
+				err_expr = make_string("Continuation is no longer active");
+				return ERROR_USER;
+			}
+			throw continuation_exception{ cont->id, vargs[0] };
 		}
 		else if (fn.type == T_STRING) { /* implicit indexing for string */
 			if (vargs.size() != 1) return ERROR_ARGS;
-			long index = (long)(std::get<double>(vargs[0].val));
-			*result = make_char(fn.asp<std::string>()[index]);
+			if (vargs[0].type != T_NUM) return ERROR_TYPE;
+			double d_idx = std::get<double>(vargs[0].val);
+			if (d_idx < 0 || floor(d_idx) != d_idx) {
+				*result = nil;
+				return ERROR_OK;
+			}
+			long index = (long)d_idx;
+			const auto& str = fn.asp<std::string>();
+			if (index < 0 || (size_t)index >= str.length()) {
+				*result = nil;
+				return ERROR_OK;
+			}
+			*result = make_char(str[index]);
 			return ERROR_OK;
 		}
 		else if (fn.type == T_CONS && listp(fn)) { /* implicit indexing for list */
 			if (vargs.size() != 1) return ERROR_ARGS;
-			long index = (long)(std::get<double>(vargs[0].val));
+			if (vargs[0].type != T_NUM) return ERROR_TYPE;
+			double d_idx = std::get<double>(vargs[0].val);
+			if (d_idx < 0 || floor(d_idx) != d_idx) {
+				*result = nil;
+				return ERROR_OK;
+			}
+			long index = (long)d_idx;
 			atom a = fn;
 			long i;
 			for (i = 0; i < index; i++) {
 				a = cdr(a);
-				if (no(a)) {
+				if (no(a) || a.type != T_CONS) {
 					*result = nil;
 					return ERROR_OK;
 				}
@@ -857,6 +928,9 @@ Addition. This operator also performs string and list concatenation.
 				}
 				*result = acc;
 			}
+			else {
+				return ERROR_TYPE;
+			}
 		}
 		return ERROR_OK;
 	}
@@ -902,14 +976,18 @@ Addition. This operator also performs string and list concatenation.
 		}
 		if (vargs[0].type != T_NUM) return ERROR_TYPE;
 		if (vargs.size() == 1) { /* 1 argument */
-			*result = make_number(1.0 / std::get<double>(vargs[0].val));
+			double d = std::get<double>(vargs[0].val);
+			if (d == 0.0) return ERROR_ARGS;
+			*result = make_number(1.0 / d);
 			return ERROR_OK;
 		}
 		double r = std::get<double>(vargs[0].val);
 		size_t i;
 		for (i = 1; i < vargs.size(); i++) {
 			if (vargs[i].type != T_NUM) return ERROR_TYPE;
-			r /= std::get<double>(vargs[i].val);
+			double d = std::get<double>(vargs[i].val);
+			if (d == 0.0) return ERROR_ARGS;
+			r /= d;
 		}
 		*result = make_number(r);
 		return ERROR_OK;
@@ -925,6 +1003,7 @@ Addition. This operator also performs string and list concatenation.
 		switch (vargs[0].type) {
 		case T_NUM:
 			for (i = 0; i < vargs.size() - 1; i++) {
+				if (vargs[i].type != T_NUM || vargs[i + 1].type != T_NUM) return ERROR_TYPE;
 				if (std::get<double>(vargs[i].val) >= std::get<double>(vargs[i + 1].val)) {
 					*result = nil;
 					return ERROR_OK;
@@ -934,6 +1013,7 @@ Addition. This operator also performs string and list concatenation.
 			return ERROR_OK;
 		case T_STRING:
 			for (i = 0; i < vargs.size() - 1; i++) {
+				if (vargs[i].type != T_STRING || vargs[i + 1].type != T_STRING) return ERROR_TYPE;
 				if (vargs[i].asp<std::string>() >= vargs[i + 1].asp<std::string>()) {
 					*result = nil;
 					return ERROR_OK;
@@ -956,6 +1036,7 @@ Addition. This operator also performs string and list concatenation.
 		switch (vargs[0].type) {
 		case T_NUM:
 			for (i = 0; i < vargs.size() - 1; i++) {
+				if (vargs[i].type != T_NUM || vargs[i + 1].type != T_NUM) return ERROR_TYPE;
 				if (std::get<double>(vargs[i].val) <= std::get<double>(vargs[i + 1].val)) {
 					*result = nil;
 					return ERROR_OK;
@@ -965,6 +1046,7 @@ Addition. This operator also performs string and list concatenation.
 			return ERROR_OK;
 		case T_STRING:
 			for (i = 0; i < vargs.size() - 1; i++) {
+				if (vargs[i].type != T_STRING || vargs[i + 1].type != T_STRING) return ERROR_TYPE;
 				if (vargs[i].asp<std::string>() <= vargs[i + 1].asp<std::string>()) {
 					*result = nil;
 					return ERROR_OK;
@@ -1016,22 +1098,27 @@ Addition. This operator also performs string and list concatenation.
 			case T_OUTPUT:
 				return std::get<FILE*>(a.val) == std::get<FILE*>(b.val);
 			case T_CONTINUATION:
-				return std::get<jmp_buf*>(a.val) == std::get<jmp_buf*>(b.val);
+				return std::get<std::shared_ptr<struct continuation>>(a.val) == std::get<std::shared_ptr<struct continuation>>(b.val);
+			}
+		}
+		return false;
+	}
+
+	bool iso_helper(const atom& a, const atom& b, int depth) {
+		if (depth > 2000) return is(a, b);
+		if (a.type == b.type) {
+			switch (a.type) {
+			case T_CONS:
+				return iso_helper(car(a), car(b), depth + 1) && iso_helper(cdr(a), cdr(b), depth + 1);
+			default:
+				return is(a, b);
 			}
 		}
 		return false;
 	}
 
 	bool iso(const atom& a, const atom& b) {
-		if (a.type == b.type) {
-			switch (a.type) {
-			case T_CONS:
-				return iso(car(a), car(b)) && iso(cdr(a), cdr(b));
-			default:
-				return is(a, b);
-			}
-		}
-		return 0;
+		return iso_helper(a, b, 0);
 	}
 
 	error builtin_is(const std::vector<atom>& vargs, atom* result)
@@ -1078,8 +1165,11 @@ Addition. This operator also performs string and list concatenation.
 		if (vargs.size() != 2) return ERROR_ARGS;
 		atom dividend = vargs[0];
 		atom divisor = vargs[1];
-		double r = fmod(std::get<double>(dividend.val), std::get<double>(divisor.val));
-		if (std::get<double>(dividend.val) * std::get<double>(divisor.val) < 0 && r != 0) r += std::get<double>(divisor.val);
+		if (dividend.type != T_NUM || divisor.type != T_NUM) return ERROR_TYPE;
+		double div_val = std::get<double>(divisor.val);
+		if (div_val == 0.0) return ERROR_ARGS;
+		double r = fmod(std::get<double>(dividend.val), div_val);
+		if (std::get<double>(dividend.val) * div_val < 0 && r != 0) r += div_val;
 		*result = make_number(r);
 		return ERROR_OK;
 	}
@@ -1110,14 +1200,20 @@ Addition. This operator also performs string and list concatenation.
 
 	/* string-sref obj value index */
 	error builtin_string_sref(const std::vector<atom>& vargs, atom* result) {
-		atom index, obj, value;
 		if (vargs.size() != 3) return ERROR_ARGS;
-		obj = vargs[0];
+		atom obj = vargs[0];
 		if (obj.type != T_STRING) return ERROR_TYPE;
-		value = vargs[1];
-		index = vargs[2];
-		obj.asp<std::string>()[(long)std::get<double>(index.val)] = std::get<char>(value.val);
-		*result = make_char(std::get<char>(value.val));
+		atom value = vargs[1];
+		if (value.type != T_CHAR) return ERROR_TYPE;
+		atom index = vargs[2];
+		if (index.type != T_NUM) return ERROR_TYPE;
+		double d_idx = std::get<double>(index.val);
+		if (d_idx < 0 || floor(d_idx) != d_idx) return ERROR_ARGS;
+		long idx = (long)d_idx;
+		auto& s = obj.asp<std::string>();
+		if (idx < 0 || (size_t)idx >= s.length()) return ERROR_ARGS;
+		s[idx] = std::get<char>(value.val);
+		*result = value;
 		return ERROR_OK;
 	}
 
@@ -1133,7 +1229,9 @@ Addition. This operator also performs string and list concatenation.
 			fp = stdout;
 			break;
 		case 2:
+			if (vargs[1].type != T_OUTPUT && vargs[1].type != T_INPUT && vargs[1].type != T_INPUT_PIPE) return ERROR_TYPE;
 			fp = std::get<FILE*>(vargs[1].val);
+			if (!fp) return ERROR_FILE;
 			break;
 		default:
 			return ERROR_ARGS;
@@ -1146,15 +1244,15 @@ Addition. This operator also performs string and list concatenation.
 	error builtin_writeb(const std::vector<atom>& vargs, atom* result) {
 		long l = vargs.size();
 		FILE* fp;
-		switch (l) {
-		case 0: return ERROR_ARGS;
-		case 1:
+		if (l < 1 || l > 2) return ERROR_ARGS;
+		if (vargs[0].type != T_NUM) return ERROR_TYPE;
+		if (l == 1) {
 			fp = stdout;
-			break;
-		case 2:
+		}
+		else {
+			if (vargs[1].type != T_OUTPUT) return ERROR_TYPE;
 			fp = std::get<FILE*>(vargs[1].val);
-			break;
-		default: return ERROR_ARGS;
+			if (!fp) return ERROR_FILE;
 		}
 		fputc((int)std::get<double>(vargs[0].val), fp);
 		*result = nil;
@@ -1162,27 +1260,27 @@ Addition. This operator also performs string and list concatenation.
 	}
 
 	error builtin_expt(const std::vector<atom>& vargs, atom* result) {
-		atom a, b;
 		if (vargs.size() != 2) return ERROR_ARGS;
-		a = vargs[0];
-		b = vargs[1];
-		*result = make_number(pow(std::get<double>(a.val), std::get<double>(b.val)));
+		if (vargs[0].type != T_NUM || vargs[1].type != T_NUM) return ERROR_TYPE;
+		*result = make_number(pow(std::get<double>(vargs[0].val), std::get<double>(vargs[1].val)));
 		return ERROR_OK;
 	}
 
 	error builtin_log(const std::vector<atom>& vargs, atom* result) {
-		atom a;
 		if (vargs.size() != 1) return ERROR_ARGS;
-		a = vargs[0];
-		*result = make_number(log(std::get<double>(a.val)));
+		if (vargs[0].type != T_NUM) return ERROR_TYPE;
+		double d = std::get<double>(vargs[0].val);
+		if (d <= 0.0) return ERROR_ARGS;
+		*result = make_number(log(d));
 		return ERROR_OK;
 	}
 
 	error builtin_sqrt(const std::vector<atom>& vargs, atom* result) {
-		atom a;
 		if (vargs.size() != 1) return ERROR_ARGS;
-		a = vargs[0];
-		*result = make_number(sqrt(std::get<double>(a.val)));
+		if (vargs[0].type != T_NUM) return ERROR_TYPE;
+		double d = std::get<double>(vargs[0].val);
+		if (d < 0.0) return ERROR_ARGS;
+		*result = make_number(sqrt(d));
 		return ERROR_OK;
 	}
 
@@ -1215,7 +1313,10 @@ Addition. This operator also performs string and list concatenation.
 	error builtin_rand(const std::vector<atom>& vargs, atom* result) {
 		long alen = vargs.size();
 		if (alen == 0) *result = make_number(rand_double());
-		else if (alen == 1) *result = make_number(floor(rand_double() * std::get<double>(vargs[0].val)));
+		else if (alen == 1) {
+			if (vargs[0].type != T_NUM) return ERROR_TYPE;
+			*result = make_number(floor(rand_double() * std::get<double>(vargs[0].val)));
+		}
 		else return ERROR_ARGS;
 		return ERROR_OK;
 	}
@@ -1442,6 +1543,7 @@ Addition. This operator also performs string and list concatenation.
 		atom a = vargs[0];
 		if (a.type != T_STRING) return ERROR_TYPE;
 		FILE* fp = fopen(a.asp<std::string>().c_str(), mode);
+		if (!fp) return ERROR_FILE;
 		*result = make_output(fp);
 		return ERROR_OK;
 	}
@@ -1451,10 +1553,13 @@ Addition. This operator also performs string and list concatenation.
 		if (vargs.size() >= 1) {
 			for (atom a : vargs) {
 				if (a.type != T_INPUT && a.type != T_INPUT_PIPE && a.type != T_OUTPUT) return ERROR_TYPE;
-				if (a.type == T_INPUT_PIPE)
-					pclose(std::get<FILE*>(a.val));
-				else
-					fclose(std::get<FILE*>(a.val));
+				FILE* fp = std::get<FILE*>(a.val);
+				if (fp) {
+					if (a.type == T_INPUT_PIPE)
+						pclose(fp);
+					else
+						fclose(fp);
+				}
 			}
 			*result = nil;
 			return ERROR_OK;
@@ -1470,19 +1575,24 @@ Addition. This operator also performs string and list concatenation.
 			fp = stdin;
 			break;
 		case 1:
+			if (vargs[0].type != T_INPUT && vargs[0].type != T_INPUT_PIPE) return ERROR_TYPE;
 			fp = std::get<FILE*>(vargs[0].val);
+			if (!fp) return ERROR_FILE;
 			break;
 		default:
 			return ERROR_ARGS;
 		}
-		*result = make_number(fgetc(fp));
+		int ch = fgetc(fp);
+		*result = (ch == EOF) ? nil : make_number(ch);
 		return ERROR_OK;
 	}
 
 	/* sread input-port eof */
 	error builtin_sread(const std::vector<atom>& vargs, atom* result) {
 		if (vargs.size() != 2) return ERROR_ARGS;
+		if (vargs[0].type != T_INPUT && vargs[0].type != T_INPUT_PIPE) return ERROR_TYPE;
 		FILE* fp = std::get<FILE*>(vargs[0].val);
+		if (!fp) return ERROR_FILE;
 		atom eof = vargs[1];
 		error err;
 		if (feof(fp)) {
@@ -1490,8 +1600,10 @@ Addition. This operator also performs string and list concatenation.
 			return ERROR_OK;
 		}
 		char* s = slurp_fp(fp);
+		if (!s) return ERROR_FILE;
 		const char* p = s;
 		err = read_expr(p, &p, result);
+		free(s);
 		return err;
 	}
 
@@ -1507,7 +1619,9 @@ Addition. This operator also performs string and list concatenation.
 			fp = stdout;
 			break;
 		case 2:
+			if (vargs[1].type != T_OUTPUT && vargs[1].type != T_INPUT && vargs[1].type != T_INPUT_PIPE) return ERROR_TYPE;
 			fp = std::get<FILE*>(vargs[1].val);
+			if (!fp) return ERROR_FILE;
 			break;
 		default:
 			return ERROR_ARGS;
@@ -1522,23 +1636,17 @@ Addition. This operator also performs string and list concatenation.
 	/* newstring length [char] */
 	error builtin_newstring(const std::vector<atom>& vargs, atom* result) {
 		long arg_len = vargs.size();
-		long length = (long)std::get<double>(vargs[0].val);
-		char c = 0;
-		char* s;
-		switch (arg_len) {
-		case 1: break;
-		case 2:
+		if (arg_len < 1 || arg_len > 2) return ERROR_ARGS;
+		if (vargs[0].type != T_NUM) return ERROR_TYPE;
+		double d_len = std::get<double>(vargs[0].val);
+		if (d_len < 0 || floor(d_len) != d_len) return ERROR_ARGS;
+		long length = (long)d_len;
+		char c = '\0';
+		if (arg_len == 2) {
+			if (vargs[1].type != T_CHAR) return ERROR_TYPE;
 			c = std::get<char>(vargs[1].val);
-			break;
-		default:
-			return ERROR_ARGS;
 		}
-		s = (char*)malloc((length + 1) * sizeof(char));
-		int i;
-		for (i = 0; i < length; i++)
-			s[i] = c;
-		s[length] = 0; /* end of string */
-		*result = make_string(s);
+		*result = make_string(std::string(length, c));
 		return ERROR_OK;
 	}
 
@@ -1699,7 +1807,7 @@ A symbol can be coerced to a string.
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type == T_STRING) {
-			*result = make_number(strlen(a.asp<std::string>().c_str()));
+			*result = make_number(a.asp<std::string>().length());
 		}
 		else if (a.type == T_TABLE) {
 			*result = make_number(a.asp<table>().size());
@@ -1710,10 +1818,17 @@ A symbol can be coerced to a string.
 		return ERROR_OK;
 	}
 
-	atom make_continuation(jmp_buf* jb) {
+	static uint64_t next_continuation_id = 1;
+
+	struct ContGuard {
+		std::shared_ptr<struct continuation> c;
+		~ContGuard() { if (c) c->active = false; }
+	};
+
+	atom make_continuation(const std::shared_ptr<struct continuation>& cont) {
 		atom a;
 		a.type = T_CONTINUATION;
-		a.val = jb;
+		a.val = cont;
 		return a;
 	}
 
@@ -1721,14 +1836,24 @@ A symbol can be coerced to a string.
 		if (vargs.size() != 1) return ERROR_ARGS;
 		atom a = vargs[0];
 		if (a.type != T_BUILTIN && a.type != T_CLOSURE) return ERROR_TYPE;
-		jmp_buf jb;
-		int val = setjmp(jb);
-		if (val) {
-			*result = thrown;
-			return ERROR_OK;
+
+		auto cont = std::make_shared<struct continuation>();
+		cont->id = next_continuation_id++;
+		cont->active = true;
+
+		ContGuard guard{ cont };
+
+		try {
+			std::vector<atom> args{ make_continuation(cont) };
+			return apply(a, args, result);
 		}
-		std::vector<atom> args{ make_continuation(&jb) };
-		return apply(a, args, result);
+		catch (const continuation_exception& ce) {
+			if (ce.id == cont->id) {
+				*result = ce.val;
+				return ERROR_OK;
+			}
+			throw; // rethrow for outer continuation
+		}
 	}
 
 	// mvfile source destination
@@ -1836,7 +1961,15 @@ A symbol can be coerced to a string.
 
 	/* end builtin */
 
-	std::string to_string(atom a, int write) {
+	std::string to_string(atom a, int write, int depth, int max_depth) {
+		if (depth >= 1000) {
+			return "...";
+		}
+		if (a.type == T_CONS || a.type == T_TABLE || a.type == T_CLOSURE || a.type == T_MACRO) {
+			if (depth >= max_depth) {
+				return "...";
+			}
+		}
 		std::string s;
 		switch (a.type) {
 		case T_NIL:
@@ -1845,31 +1978,50 @@ A symbol can be coerced to a string.
 		case T_CONS: {
 			if (listp(a) && len(a) == 2) {
 				if (is(car(a), sym_quote)) {
-					s = "'" + to_string(car(cdr(a)), write);
+					s = "'" + to_string(car(cdr(a)), write, depth + 1, max_depth);
 					break;
 				}
 				else if (is(car(a), sym_quasiquote)) {
-					s = "`" + to_string(car(cdr(a)), write);
+					s = "`" + to_string(car(cdr(a)), write, depth + 1, max_depth);
 					break;
 				}
 				else if (is(car(a), sym_unquote)) {
-					s = "," + to_string(car(cdr(a)), write);
+					s = "," + to_string(car(cdr(a)), write, depth + 1, max_depth);
 					break;
 				}
 				else if (is(car(a), sym_unquote_splicing)) {
-					s = ",@" + to_string(car(cdr(a)), write);
+					s = ",@" + to_string(car(cdr(a)), write, depth + 1, max_depth);
 					break;
 				}
 			}
-			s = "(" + to_string(car(a), write);
+			s = "(" + to_string(car(a), write, depth + 1, max_depth);
 			a = cdr(a);
+			size_t list_steps = 0;
+			atom slow = a;
+			atom fast = a;
 			while (!no(a)) {
 				if (a.type == T_CONS) {
-					s += " " + to_string(car(a), write);
+					list_steps++;
+					if (list_steps > 1000) {
+						s += " ...";
+						break;
+					}
+					if (!no(fast) && fast.type == T_CONS) {
+						fast = cdr(fast);
+						if (!no(fast) && fast.type == T_CONS) {
+							fast = cdr(fast);
+							slow = cdr(slow);
+							if (is(slow, fast)) {
+								s += " ...";
+								break;
+							}
+						}
+					}
+					s += " " + to_string(car(a), write, depth + 1, max_depth);
 					a = cdr(a);
 				}
 				else {
-					s += " . " + to_string(a, write);
+					s += " . " + to_string(a, write, depth + 1, max_depth);
 					break;
 				}
 			}
@@ -1901,12 +2053,12 @@ A symbol can be coerced to a string.
 		case T_CLOSURE:
 		{
 			atom a2 = make_cons(sym_fn, make_cons(a.asp<struct closure>().args, a.asp<struct closure>().body));
-			s = "#<closure>" + to_string(a2, 1);
+			s = "#<closure>" + to_string(a2, 1, depth + 1, max_depth);
 			break;
 		}
 		case T_MACRO:
-			s = "#<macro:" + to_string(a.asp<struct closure>().args, write) +
-				" " + to_string(a.asp<struct closure>().body, write) + ">";
+			s = "#<macro:" + to_string(a.asp<struct closure>().args, write, depth + 1, max_depth) +
+				" " + to_string(a.asp<struct closure>().body, write, depth + 1, max_depth) + ">";
 			break;
 		case T_INPUT:
 			s = "#<input>";
@@ -1919,8 +2071,13 @@ A symbol can be coerced to a string.
 			break;
 		case T_TABLE: {
 			s += "#<table:(";
+			size_t table_count = 0;
 			for (auto& p : a.asp<table>()) {
-				s += "(" + to_string(p.first, write) + " . " + to_string(p.second, write) + ")";
+				if (table_count++ > 1000) {
+					s += " ...";
+					break;
+				}
+				s += "(" + to_string(p.first, write, depth + 1, max_depth) + " . " + to_string(p.second, write, depth + 1, max_depth) + ")";
 			}
 			s += ")>";
 			break; }
@@ -1938,8 +2095,7 @@ A symbol can be coerced to a string.
 				}
 			}
 			else {
-				s[0] = std::get<char>(a.val);
-				s[1] = '\0';
+				s = std::string(1, std::get<char>(a.val));
 			}
 			break;
 		case T_CONTINUATION:
@@ -1960,19 +2116,22 @@ A symbol can be coerced to a string.
 	}
 
 	char* slurp_fp(FILE* fp) {
-		char* buf;
-		size_t len;
+		if (!fp) return NULL;
+		if (fseek(fp, 0, SEEK_END) != 0) return NULL;
+		long ftell_len = ftell(fp);
+		if (ftell_len < 0) return NULL;
+		if (fseek(fp, 0, SEEK_SET) != 0) return NULL;
 
-		fseek(fp, 0, SEEK_END);
-		len = ftell(fp);
-		if (len < 0) return NULL;
-		fseek(fp, 0, SEEK_SET);
-
-		buf = (char*)malloc(len + 1);
+		size_t len = (size_t)ftell_len;
+		char* buf = (char*)malloc(len + 1);
 		if (!buf)
 			return NULL;
 
-		if (fread(buf, 1, len, fp) != len) return NULL;
+		size_t read_bytes = fread(buf, 1, len, fp);
+		if (read_bytes != len) {
+			free(buf);
+			return NULL;
+		}
 		buf[len] = 0;
 
 		return buf;
@@ -1991,7 +2150,11 @@ A symbol can be coerced to a string.
 	}
 
 	/* compile-time macro */
-	error macex(atom expr, atom* result) {
+	error macex_helper(atom expr, atom* result, int depth) {
+		if (depth > 1024) {
+			err_expr = expr;
+			return ERROR_SYNTAX;
+		}
 		error err = ERROR_OK;
 
 		err_expr = expr;
@@ -2024,7 +2187,7 @@ A symbol can be coerced to a string.
 				if (err) {
 					return err;
 				}
-				err = macex(result2, result); /* recursive */
+				err = macex_helper(result2, result, depth + 1); /* recursive */
 				if (err) {
 					return err;
 				}
@@ -2035,7 +2198,7 @@ A symbol can be coerced to a string.
 				atom expr2 = copy_list(expr);
 				atom h;
 				for (h = expr2; !no(h); h = cdr(h)) {
-					err = macex(car(h), &car(h));
+					err = macex_helper(car(h), &car(h), depth + 1);
 					if (err) {
 						return err;
 					}
@@ -2046,14 +2209,32 @@ A symbol can be coerced to a string.
 		}
 	}
 
+	error macex(atom expr, atom* result) {
+		return macex_helper(expr, result, 0);
+	}
+
 	error macex_eval(atom expr, atom* result) {
-		atom expr2;
-		error err = macex(expr, &expr2);
-		if (err) return err;
-		/*printf("expanded: ");
-		print_expr(expr2);
-		puts("");*/
-		return eval_expr(expr2, global_env, result);
+		try {
+			atom expr2;
+			error err = macex(expr, &expr2);
+			if (err) return err;
+			/*printf("expanded: ");
+			print_expr(expr2);
+			puts("");*/
+			return eval_expr(expr2, global_env, result);
+		}
+		catch (const continuation_exception&) {
+			err_expr = make_string("Uncaught continuation");
+			return ERROR_USER;
+		}
+		catch (const std::bad_variant_access&) {
+			err_expr = make_string("Invalid type access");
+			return ERROR_TYPE;
+		}
+		catch (const std::exception& e) {
+			err_expr = make_string(e.what());
+			return ERROR_USER;
+		}
 	}
 
 	error load_string(const char* text) {
@@ -2388,6 +2569,12 @@ A symbol can be coerced to a string.
 			printf("%s: ", error_string[e]);
 			print_expr(err_expr);
 			puts("");
+		}
+		else {
+			if (!no(err_expr)) {
+				print_expr(err_expr);
+				puts("");
+			}
 		}
 	}
 

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <math.h>
 #include <time.h>
 #include <setjmp.h>
@@ -61,6 +62,11 @@ namespace arc {
 	typedef std::unordered_map<atom, atom> table;
 	typedef int sym;
 	typedef std::unordered_map<sym, atom> env_table;
+
+	struct continuation {
+		uint64_t id = 0;
+		bool active = true;
+	};
 	
 	struct atom {
 		enum type type = T_NIL;
@@ -75,7 +81,7 @@ namespace arc {
 			FILE *,
 			std::shared_ptr<table>,
 			char,
-			jmp_buf *> val;
+			std::shared_ptr<struct continuation>> val;
 
 		template <typename T>
 		T& asp() const { return *std::get<std::shared_ptr<T>>(val); }
@@ -108,7 +114,7 @@ namespace arc {
 	char *slurp(const char *path);
 	error eval_expr(atom expr, std::shared_ptr<struct env> env, atom *result);
 	error macex(atom expr, atom *result);
-	std::string to_string(atom a, int write);
+	std::string to_string(atom a, int write, int depth = 0, int max_depth = 30);
 	error macex_eval(atom expr, atom *result);
 	error arc_load_file(const char *path);
 	void arc_init();
@@ -139,12 +145,19 @@ namespace std {
 			switch (a.type) {
 			case arc::T_NIL:
 				return 0;
-			case arc::T_CONS:
+			case arc::T_CONS: {
+				size_t steps = 0;
+				arc::atom slow = a;
 				while (!no(a)) {
 					r *= 31;
 					if (a.type == arc::T_CONS) {
 						r += hash<arc::atom>()(car(a));
 						a = cdr(a);
+						steps++;
+						if (steps % 2 == 0) {
+							slow = cdr(slow);
+							if (is(slow, a)) break; // cycle detected
+						}
 					}
 					else {
 						r += hash<arc::atom>()(a);
@@ -152,6 +165,7 @@ namespace std {
 					}
 				}
 				return r;
+			}
 			case arc::T_SYM:
 				return hash<arc::sym>()(std::get<arc::sym>(a.val));
 			case arc::T_STRING: {
@@ -170,6 +184,8 @@ namespace std {
 			case arc::T_INPUT_PIPE:
 			case arc::T_OUTPUT:
 				return hash<void *>()(std::get<FILE *>(a.val));
+			case arc::T_CONTINUATION:
+				return hash<void *>()(std::get<std::shared_ptr<arc::continuation>>(a.val).get());
 			default:
 				return 0;
 			}
